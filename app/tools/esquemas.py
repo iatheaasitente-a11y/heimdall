@@ -18,18 +18,18 @@ class Parametros(BaseModel):
 class CrearEvento(Parametros):
     """Parámetros para crear un evento."""
 
-    titulo: str
+    titulo: str = Field(max_length=500)
     comienza: AwareDatetime
     termina: AwareDatetime
-    descripcion: str | None = None
-    ubicacion: str | None = None
+    descripcion: str | None = Field(default=None, max_length=500)
+    ubicacion: str | None = Field(default=None, max_length=500)
 
 
 class IdentificadorEvento(Parametros):
     """Identificador UUID o título de un evento."""
 
     evento_id: UUID | None = None
-    titulo: str | None = None
+    titulo: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def exigir_un_selector(self) -> "IdentificadorEvento":
@@ -54,21 +54,21 @@ class Dia(Parametros):
 class CrearHabito(Parametros):
     """Parámetros para crear un hábito."""
 
-    nombre: str
+    nombre: str = Field(max_length=500)
     frecuencia: FrecuenciaHabito = FrecuenciaHabito.DIARIA
-    objetivo: float = Field(default=1.0, gt=0)
-    unidad: str = "veces"
-    descripcion: str | None = None
+    objetivo: float = Field(default=1.0, gt=0, allow_inf_nan=False)
+    unidad: str = Field(default="veces", max_length=500)
+    descripcion: str | None = Field(default=None, max_length=500)
 
 
 class RegistrarProgresoHabito(Parametros):
     """Parámetros para registrar progreso por UUID o nombre de hábito."""
 
     habito_id: UUID | None = None
-    nombre: str | None = None
-    valor: float = Field(ge=0)
+    nombre: str | None = Field(default=None, max_length=500)
+    valor: float = Field(ge=0, allow_inf_nan=False)
     cuando: AwareDatetime | None = None
-    notas: str | None = None
+    notas: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def exigir_un_selector(self) -> "RegistrarProgresoHabito":
@@ -81,7 +81,7 @@ class ConsultarHabito(Parametros):
     """Parámetros para consultar un hábito por UUID o nombre."""
 
     habito_id: UUID | None = None
-    nombre: str | None = None
+    nombre: str | None = Field(default=None, max_length=500)
     dia: date | None = None
 
     @model_validator(mode="after")
@@ -94,8 +94,8 @@ class ConsultarHabito(Parametros):
 class CrearObjetivo(Parametros):
     """Parámetros para crear un objetivo."""
 
-    nombre: str
-    descripcion: str | None = None
+    nombre: str = Field(max_length=500)
+    descripcion: str | None = Field(default=None, max_length=500)
     fecha_limite: date | None = None
 
 
@@ -103,8 +103,8 @@ class ActualizarProgresoObjetivo(Parametros):
     """Parámetros para actualizar progreso por UUID o nombre de objetivo."""
 
     objetivo_id: UUID | None = None
-    nombre: str | None = None
-    progreso: float = Field(ge=0, le=100)
+    nombre: str | None = Field(default=None, max_length=500)
+    progreso: float = Field(ge=0, le=100, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def exigir_un_selector(self) -> "ActualizarProgresoObjetivo":
@@ -117,7 +117,7 @@ class CambiarEstadoObjetivo(Parametros):
     """Identificador UUID o nombre del objetivo que cambia de estado."""
 
     objetivo_id: UUID | None = None
-    nombre: str | None = None
+    nombre: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def exigir_un_selector(self) -> "CambiarEstadoObjetivo":
@@ -135,7 +135,7 @@ class ListarObjetivos(Parametros):
 class ProgramarRecordatorio(Parametros):
     """Parámetros para programar un recordatorio libre."""
 
-    mensaje: str
+    mensaje: str = Field(max_length=500)
     cuando: AwareDatetime
 
 
@@ -143,7 +143,7 @@ class IdentificadorRecordatorio(Parametros):
     """Identificador UUID o texto de un recordatorio."""
 
     recordatorio_id: UUID | None = None
-    mensaje: str | None = None
+    mensaje: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def exigir_un_selector(self) -> "IdentificadorRecordatorio":
@@ -171,7 +171,7 @@ class ResumenDia(Parametros):
 class ConsultaNBA(Parametros):
     """Consulta de texto libre para la fuente NBA."""
 
-    consulta: str = Field(min_length=1)
+    consulta: str = Field(min_length=1, max_length=500)
 
 
 def _validar_selector(identificador: UUID | None, nombre: str | None) -> None:

@@ -59,8 +59,9 @@ sin ejecutar código. Cada fallo indica archivo y línea.
 Cada herramienta declara argumentos en un modelo Pydantic del que obtiene su
 esquema JSON. El `usuario_id` se pasa por separado desde el sistema y nunca
 forma parte de los argumentos del modelo. Las herramientas delegan en servicios
-y convierten sus resultados a JSON; los `ErrorDeServicio` se devuelven como
-errores estructurados. Las operaciones internas de recordatorios no se exponen.
+y convierten sus resultados a JSON; los textos se limitan a 500 caracteres y
+los valores numéricos rechazan NaN e infinito. Los `ErrorDeServicio` se devuelven
+como errores estructurados. Las operaciones internas de recordatorios no se exponen.
 Los selectores de hábito, objetivo, evento y recordatorio aceptan UUID o nombre
 exacto sin distinguir mayúsculas ni tildes; la búsqueda se limita al usuario.
 Una selección ausente o ambigua devuelve candidatos, y hay herramientas para
@@ -90,7 +91,9 @@ la herramienta y sus argumentos pertenecen al catálogo; al motor solo pasa los
 
 Los motores de VISION y OCR aceptan rutas locales a imágenes JPEG o PNG.
 `app/llm/vision.py` aplica los límites de tamaño y dimensiones aprobados,
-rechaza enlaces simbólicos y envía la imagen como entrada multimodal a Ollama.
+rechaza enlaces simbólicos y comprueba el tamaño antes de leer. El planificador
+pasa los bytes ya validados al motor y evita releer el archivo. Ollama solo
+admite endpoints HTTP(S) locales. La imagen se envía como entrada multimodal.
 El contrato de salida sigue siendo intención, campos y confianza; los tests
 usan motores falsos y no requieren Ollama.
 

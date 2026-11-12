@@ -1,5 +1,6 @@
 """Cliente mínimo de Ollama con salida estructurada y sin reintentos."""
 
+import ipaddress
 import json
 import math
 import os
@@ -34,7 +35,24 @@ class MotorOllama(MotorLLM):
                     "HEIMDALL_LLM_TIMEOUT debe ser un número positivo y finito."
                 ) from error
         _validar_timeout(timeout)
-        if not urlsplit(url).path.endswith("/api/chat"):
+        try:
+            partes = urlsplit(url)
+            host = partes.hostname
+            _ = partes.port
+            es_local = host is not None and (
+                host.lower().rstrip(".") == "localhost"
+                or ipaddress.ip_address(host).is_loopback
+            )
+        except ValueError as error:
+            raise ValueError("La URL de Ollama debe usar un host local válido.") from error
+        if (
+            partes.scheme not in {"http", "https"}
+            or not es_local
+            or partes.username is not None
+            or partes.password is not None
+        ):
+            raise ValueError("La URL de Ollama debe usar HTTP(S) y un host local.")
+        if not partes.path.endswith("/api/chat"):
             raise ValueError("La URL de Ollama debe terminar en /api/chat.")
         self._url = url
         self._modelo = modelo.strip()

@@ -56,7 +56,7 @@ def crear_motor(modo: str | None = None) -> MotorLLM | None:
     """Crea el motor configurado; por defecto devuelve ``None``.
 
     Raises:
-        ValueError: Si el modo no es ``apagado``, ``ollama`` o ``nube``.
+        ValueError: Si el modo es inválido o Ollama no tiene modelo de texto.
     """
     configurado = modo if modo is not None else os.getenv("HEIMDALL_LLM", "apagado")
     try:
@@ -69,6 +69,8 @@ def crear_motor(modo: str | None = None) -> MotorLLM | None:
     if seleccionado == ModoLLM.OLLAMA:
         configuracion = crear_catalogo().obtener(RolModelo.TEXTO)
         if configuracion is None:
-            return None
+            raise ValueError(
+                "HEIMDALL_LLM=ollama requiere HEIMDALL_MODELO_TEXTO."
+            )
         return MotorOllama(modelo=configuracion.nombre)
     return MotorNube()

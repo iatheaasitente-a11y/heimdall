@@ -273,11 +273,39 @@ def test_configuracion_selecciona_ollama_o_nube(monkeypatch):
     assert isinstance(crear_motor(), MotorNube)
 
 
-def test_configuracion_apaga_ollama_si_no_hay_modelo_de_texto(monkeypatch):
+def test_configuracion_rechaza_ollama_sin_modelo_de_texto(monkeypatch):
     monkeypatch.setenv("HEIMDALL_LLM", "ollama")
     monkeypatch.delenv("HEIMDALL_MODELO_TEXTO", raising=False)
 
-    assert crear_motor() is None
+    with pytest.raises(ValueError, match="HEIMDALL_MODELO_TEXTO"):
+        crear_motor()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "ftp://127.0.0.1:11434/api/chat",
+        "http://ollama.example.com:11434/api/chat",
+        "http://localhost@ollama.example.com:11434/api/chat",
+    ],
+)
+def test_ollama_rechaza_esquemas_y_hosts_no_locales(url):
+    with pytest.raises(ValueError, match="host local"):
+        MotorOllama(url=url, modelo=MODELO_PRUEBA)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:11434/api/chat",
+        "https://127.0.0.1:11434/api/chat",
+        "http://[::1]:11434/api/chat",
+    ],
+)
+def test_ollama_acepta_hosts_locales(url):
+    motor = MotorOllama(url=url, modelo=MODELO_PRUEBA)
+
+    assert motor._url == url
 
 
 def test_catalogo_desde_entorno_apaga_todos_los_roles_por_defecto(monkeypatch):

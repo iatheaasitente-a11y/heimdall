@@ -41,7 +41,9 @@ Los nombres sin etiqueta se guardan normalizados con `:latest`; la carga y
 descarga comparan esa forma con los nombres informados por `/api/ps`.
 `crear_planificador` usa este catálogo. El selector histórico `HEIMDALL_LLM`
 sigue apagado por defecto; al elegir Ollama para el chatbot, también se requiere
-un `HEIMDALL_MODELO_TEXTO` explícito.
+un `HEIMDALL_MODELO_TEXTO` explícito; si falta, la configuración produce un
+error explícito en vez de dejar Ollama apagado silenciosamente. El cliente Ollama
+acepta únicamente endpoints HTTP(S) con host local.
 
 El rol VOZ aún no tiene motor de transcripción operativo: el planificador
 rechaza su ejecución explícitamente con `MotorVozNoDisponible`, en vez de
@@ -78,9 +80,10 @@ Estos son límites aprobados por el usuario para las fases de visión y voz; no
 son resultados de benchmarks ni se amplían automáticamente.
 
 La fase de visión valida JPEG y PNG locales antes de cargarlos, comprueba los
-límites anteriores y rechaza enlaces simbólicos. VISION y OCR comparten el
-contrato estructurado y el planificador de modelo único; la entrada de imagen
-se envía a Ollama con el motor de visión configurado para cada rol. Las pruebas
+límites anteriores y rechaza enlaces simbólicos. El tamaño se comprueba antes
+de leer y el planificador entrega al motor los bytes ya validados. VISION y OCR
+comparten el contrato estructurado y el planificador de modelo único; la entrada
+de imagen se envía a Ollama con el motor de visión configurado para cada rol. Las pruebas
 usan motores falsos y respuestas HTTP simuladas, sin red ni servidor Ollama.
 
 La fase de voz valida el límite de tamaño y calcula la duración desde los

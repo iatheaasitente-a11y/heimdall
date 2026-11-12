@@ -123,7 +123,7 @@ class PlanificadorModelos:
         configuracion = self._catalogo.obtener(rol)
         if configuracion is None:
             return None
-        validar_imagen(imagen)
+        contenido = validar_imagen(imagen)
         politica = configuracion.politica
         if not self._cerrojo.acquire(timeout=politica.bloqueo):
             raise TimeoutError(f"Se agotó la espera del planificador para {rol.value}.")
@@ -134,7 +134,7 @@ class PlanificadorModelos:
             if not callable(interpretar_imagen):
                 raise TypeError("El motor configurado no admite entradas de imagen.")
             inicio = self._reloj()
-            respuesta = interpretar_imagen(imagen, instruccion)
+            respuesta = interpretar_imagen(contenido, instruccion)
             self._comprobar_plazo(inicio, politica.inferencia, "inferencia")
             if not isinstance(respuesta, RespuestaEstructurada):
                 return None

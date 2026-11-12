@@ -26,13 +26,14 @@ class MotorVision(ABC):
     @abstractmethod
     def interpretar_imagen(
         self,
-        imagen: Path,
+        imagen: Path | bytes,
         instruccion: str,
     ) -> RespuestaEstructurada:
         """Interpreta una imagen validada.
 
         Raises:
             ErrorImagen: Si el archivo no cumple los límites.
+            OSError: Si no se puede leer una ruta local.
         """
 
 
@@ -42,12 +43,12 @@ class MotorVisionFalso(MotorVision):
     def __init__(self, respuestas: Sequence[RespuestaEstructurada]) -> None:
         """Configura respuestas estructuradas prefijadas."""
         self._respuestas = list(respuestas)
-        self.imagenes: list[Path] = []
+        self.imagenes: list[Path | bytes] = []
         self.instrucciones: list[str] = []
 
     def interpretar_imagen(
         self,
-        imagen: Path,
+        imagen: Path | bytes,
         instruccion: str,
     ) -> RespuestaEstructurada:
         """Devuelve la siguiente respuesta prefijada.
@@ -69,7 +70,7 @@ class MotorOllamaVision(MotorOllama, MotorVision):
 
     def interpretar_imagen(
         self,
-        imagen: Path,
+        imagen: Path | bytes,
         instruccion: str,
     ) -> RespuestaEstructurada:
         """Interpreta JPEG/PNG local con el modelo configurado.
@@ -126,17 +127,22 @@ class MotorOllamaVision(MotorOllama, MotorVision):
             raise ErrorRespuestaLLM("Ollama devolvió una salida de visión inválida.") from error
 
 
-def validar_imagen(ruta: Path) -> bytes:
-    """Lee y valida un archivo JPEG/PNG local.
+def validar_imagen(ruta: Path | bytes) -> bytes:
+    """Obtiene y valida una imagen JPEG/PNG desde una ruta o bytes.
 
     Raises:
         ErrorImagen: Si hay enlace simbólico, tamaño, formato o dimensiones inválidos.
-        OSError: Si el archivo no se puede leer.
+        OSError: Si una ruta local no se puede consultar o leer.
     """
-    ruta = Path(ruta)
-    if ruta.is_symlink():
-        raise ErrorImagen("No se permiten enlaces simbólicos.")
-    contenido = ruta.read_bytes()
+    if isinstance(ruta, bytes):
+        contenido = ruta
+    else:
+        ruta = Path(ruta)
+        if ruta.is_symlink():
+            raise ErrorImagen("No se permiten enlaces simbólicos.")
+        if ruta.stat().st_size > IMAGEN_MAX_BYTES:
+            raise ErrorImagen("La imagen supera el máximo de 5 MB.")
+        contenido = ruta.read_bytes()
     if not contenido:
         raise ErrorImagen("La imagen está vacía.")
     if len(contenido) > IMAGEN_MAX_BYTES:
@@ -191,8 +197,6 @@ def _dimensiones_png(contenido: bytes) -> tuple[int, int] | None:
 def _dimensiones_jpeg(contenido: bytes) -> tuple[int, int] | None:
     if not contenido.startswith(b"\xff\xd8"):
         return None
-    if not contenido.endswith(b"\xff\xd9"):
-        raise ErrorImagen("El contenido JPEG está incompleto.")
     marcadores_sof = {
         0xC0,
         0xC1,
@@ -229,6 +233,8 @@ def _dimensiones_jpeg(contenido: bytes) -> tuple[int, int] | None:
             if longitud < 7:
                 break
             alto, ancho = struct.unpack(">HH", contenido[posicion + 3 : posicion + 7])
+            if b"\xff\xd9" not in contenido[posicion + longitud :]:
+                raise ErrorImagen("El contenido JPEG está incompleto.")
             return ancho, alto
         posicion += longitud
         if marcador == 0xDA:

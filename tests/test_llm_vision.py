@@ -59,6 +59,13 @@ def test_acepta_jpeg_y_png_locales(tmp_path, contenido):
     assert validar_imagen(ruta) == contenido
 
 
+def test_acepta_jpeg_con_datos_tras_el_marcador_eoi(tmp_path):
+    contenido = _jpeg() + b"datos posteriores"
+    ruta = _guardar(tmp_path, contenido, "imagen.jpg")
+
+    assert validar_imagen(ruta) == contenido
+
+
 @pytest.mark.parametrize(
     "contenido",
     [b"", b"imagen", b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff\xc0\x00\x01"],
@@ -90,6 +97,17 @@ def test_acepta_dimensiones_maximas(tmp_path):
 def test_rechaza_archivos_mayores_de_5_mb(tmp_path):
     ruta = _guardar(tmp_path, _png(relleno=b"x" * 5_000_000))
 
+    with pytest.raises(ErrorImagen, match="5 MB"):
+        validar_imagen(ruta)
+
+
+def test_rechaza_archivo_grande_antes_de_leerlo(tmp_path, monkeypatch):
+    ruta = _guardar(tmp_path, _png(relleno=b"x" * 5_000_000))
+
+    def no_leer(_ruta):
+        raise AssertionError("El contenido no debe leerse antes del límite de tamaño.")
+
+    monkeypatch.setattr(Path, "read_bytes", no_leer)
     with pytest.raises(ErrorImagen, match="5 MB"):
         validar_imagen(ruta)
 
@@ -155,10 +173,19 @@ def test_motor_ollama_rechaza_respuesta_estructurada_invalida(tmp_path):
             motor.interpretar_imagen(ruta, "Lee el texto")
 
 
-def test_planificador_usa_rol_vision_con_motor_falso(tmp_path):
+def test_planificador_usa_bytes_validados_sin_releer_el_archivo(tmp_path, monkeypatch):
     ruta = _guardar(tmp_path, _png())
     llamadas = []
     respuesta = RespuestaEstructurada("leer_imagen", {}, 0.9)
+    leer_bytes = Path.read_bytes
+    lecturas = 0
+
+    def contar_lecturas(ruta_leida):
+        nonlocal lecturas
+        lecturas += 1
+        return leer_bytes(ruta_leida)
+
+    monkeypatch.setattr(Path, "read_bytes", contar_lecturas)
 
     class MotorFalso:
         def modelos_cargados(self, timeout):
@@ -186,7 +213,8 @@ def test_planificador_usa_rol_vision_con_motor_falso(tmp_path):
     assert planificador.interpretar_imagen(
         RolModelo.VISION, ruta, "Describe"
     ) == respuesta
-    assert ("imagen", ruta, "Describe") in llamadas
+    assert ("imagen", _png(), "Describe") in llamadas
+    assert lecturas == 1
 
 
 def test_planificador_rechaza_roles_que_no_son_de_imagen(tmp_path):
