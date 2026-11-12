@@ -63,7 +63,8 @@ cargado no cubre interferencias externas.
 ## Límites de archivos aprobados por el usuario
 
 - Imagen: máximo 5 MB y 4096 px por lado; solo JPEG y PNG.
-- Audio: máximo 20 MB y 300 s.
+- Audio: máximo 20 MB y 300 s; la fase 17 admite solo WAV PCM sin comprimir,
+  validado con `wave` de la biblioteca estándar.
 - Se rechazan enlaces simbólicos.
 
 Estos son límites aprobados por el usuario para las fases de visión y voz; no
@@ -74,6 +75,10 @@ límites anteriores y rechaza enlaces simbólicos. VISION y OCR comparten el
 contrato estructurado y el planificador de modelo único; la entrada de imagen
 se envía a Ollama con el motor de visión configurado para cada rol. Las pruebas
 usan motores falsos y respuestas HTTP simuladas, sin red ni servidor Ollama.
+
+La fase de voz valida el límite de tamaño y calcula la duración desde los
+fotogramas y la frecuencia del WAV. Incluye un transcriptor falso; la clase
+`MotorOllamaVoz` es un esqueleto explícito y no realiza solicitudes de red.
 
 ## Fases siguientes
 

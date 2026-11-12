@@ -92,6 +92,10 @@ rechaza enlaces simbólicos y envía la imagen como entrada multimodal a Ollama.
 El contrato de salida sigue siendo intención, campos y confianza; los tests
 usan motores falsos y no requieren Ollama.
 
+La entrada de voz valida WAV PCM sin comprimir mediante `wave`, con límites
+de tamaño y duración. Incluye un transcriptor falso; `MotorOllamaVoz` permanece
+como esqueleto y no realiza llamadas de red.
+
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
 Las reglas interpretan fechas con `app/domain/lenguaje_fechas.py`; si faltan
 datos, la hora es ambigua o hay varios nombres candidatos, piden aclaración.
