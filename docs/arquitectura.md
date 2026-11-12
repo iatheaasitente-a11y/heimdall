@@ -79,6 +79,11 @@ exacto sin distinguir mayúsculas ni tildes; la búsqueda se limita al usuario.
 Una selección ausente o ambigua devuelve candidatos, y hay herramientas para
 listar hábitos y recordatorios.
 
+La resolución de esos nombres y la comprobación común de existencia y propiedad
+pertenecen a `app/services/`. Las herramientas validan la forma del selector y
+traducen sus argumentos a una llamada al servicio; no consultan repositorios ni
+replican reglas de selección.
+
 El chatbot confirma el mensaje del usuario antes de ejecutar el agente. Si falla
 el procesamiento, conserva ese turno y guarda una respuesta de error cuando la
 base sigue disponible.

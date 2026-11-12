@@ -3,7 +3,6 @@
 from app.services.agenda import ServicioAgenda
 from app.tools.base import Herramienta
 from app.tools.esquemas import CrearEvento, Dia, IdentificadorEvento, ReprogramarEvento
-from app.tools.resolucion import resolver_por_nombre
 
 
 def herramientas_agenda(servicio: ServicioAgenda) -> list[Herramienta]:
@@ -12,12 +11,7 @@ def herramientas_agenda(servicio: ServicioAgenda) -> list[Herramienta]:
     def evento_id(usuario_id, argumentos):
         if argumentos["evento_id"] is not None:
             return argumentos["evento_id"]
-        return resolver_por_nombre(
-            argumentos["titulo"],
-            servicio.listar_eventos(usuario_id),
-            lambda evento: evento.titulo,
-            "eventos",
-        )
+        return servicio.resolver_evento_id(usuario_id, argumentos["titulo"])
 
     def cambiar_estado(usuario_id, argumentos, metodo):
         return metodo(usuario_id, evento_id(usuario_id, argumentos))

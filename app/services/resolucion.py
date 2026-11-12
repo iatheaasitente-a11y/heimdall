@@ -1,11 +1,12 @@
-"""Resolución exacta y localizada de entidades para herramientas."""
+"""Resolución de entidades propias a partir de un nombre exacto."""
 
 import unicodedata
 from collections.abc import Callable, Sequence
 from typing import Protocol, TypeVar
 from uuid import UUID
 
-from app.tools.errores import ErrorResolucionNombre
+from app.services.errores import ErrorResolucionNombre
+
 
 class Identificable(Protocol):
     """Entidad con UUID para mostrar candidatos al usuario."""
@@ -49,9 +50,8 @@ def resolver_por_nombre(
 def _normalizar(texto: str) -> str:
     """Compara ignorando mayúsculas, tildes y espacios exteriores."""
     descompuesto = unicodedata.normalize("NFKD", texto.casefold().strip())
-    sin_tildes = "".join(
+    return "".join(
         caracter
         for caracter in descompuesto
         if not unicodedata.combining(caracter)
     )
-    return sin_tildes

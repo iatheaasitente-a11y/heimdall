@@ -8,11 +8,13 @@ from app.domain.goal import EstadoObjetivo, Objetivo
 from app.domain.user import Usuario
 from app.repositories.interfaces import RepositorioObjetivos, RepositorioUsuarios
 from app.schemas.goal import ObjetivoSchema
+from app.services.resolucion import resolver_por_nombre
 from app.services.errores import (
     FechaLimiteEnElPasado,
     ObjetivoNoActivo,
     ObjetivoNoEncontrado,
-    UsuarioNoEncontrado,
+    exigir_usuario,
+    obtener_entidad_de_usuario,
     transicion_de_estado,
 )
 
@@ -53,7 +55,7 @@ class ServicioObjetivos:
                 en la zona horaria del usuario.
             pydantic.ValidationError: Si el nombre está vacío.
         """
-        usuario = self._exigir_usuario(usuario_id)
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
         if fecha_limite is not None and fecha_limite < self._hoy(usuario):
             raise FechaLimiteEnElPasado(fecha_limite)
         objetivo = Objetivo(
@@ -87,9 +89,18 @@ class ServicioObjetivos:
             UsuarioNoEncontrado: Si el usuario no existe.
             ValueError: Si ``estado`` no representa un estado conocido.
         """
-        self._exigir_usuario(usuario_id)
+        exigir_usuario(self._usuarios.obtener, usuario_id)
         estado_validado = EstadoObjetivo(estado) if estado is not None else None
         return self._objetivos.listar_por_usuario(usuario_id, estado=estado_validado)
+
+    def resolver_objetivo_id(self, usuario_id: UUID, nombre: str) -> UUID:
+        """Resuelve el nombre exacto de un objetivo propio a su identificador."""
+        return resolver_por_nombre(
+            nombre,
+            self.listar_objetivos(usuario_id),
+            lambda objetivo: objetivo.nombre,
+            "objetivos",
+        )
 
     def actualizar_progreso(
         self, usuario_id: UUID, objetivo_id: UUID, progreso: float
@@ -161,7 +172,7 @@ class ServicioObjetivos:
         """
         objetivo = self._obtener(usuario_id, objetivo_id)
         if hoy is None:
-            hoy = self._hoy(self._exigir_usuario(usuario_id))
+            hoy = self._hoy(exigir_usuario(self._usuarios.obtener, usuario_id))
         return objetivo.dias_restantes(hoy)
 
     def vencidos(self, usuario_id: UUID, hoy: date | None = None) -> list[Objetivo]:
@@ -170,7 +181,7 @@ class ServicioObjetivos:
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
         """
-        usuario = self._exigir_usuario(usuario_id)
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
         dia = hoy if hoy is not None else self._hoy(usuario)
         activos = self._objetivos.listar_por_usuario(
             usuario_id, estado=EstadoObjetivo.ACTIVO
@@ -178,18 +189,9 @@ class ServicioObjetivos:
         return [objetivo for objetivo in activos if objetivo.esta_vencido(dia)]
 
     def _obtener(self, usuario_id: UUID, objetivo_id: UUID) -> Objetivo:
-        """Devuelve un objetivo del usuario o lanza ``ObjetivoNoEncontrado``."""
-        objetivo = self._objetivos.obtener(objetivo_id)
-        if objetivo is None or objetivo.usuario_id != usuario_id:
-            raise ObjetivoNoEncontrado(objetivo_id)
-        return objetivo
-
-    def _exigir_usuario(self, usuario_id: UUID) -> Usuario:
-        """Devuelve el usuario o lanza ``UsuarioNoEncontrado``."""
-        usuario = self._usuarios.obtener(usuario_id)
-        if usuario is None:
-            raise UsuarioNoEncontrado(usuario_id)
-        return usuario
+        return obtener_entidad_de_usuario(
+            self._objetivos.obtener, usuario_id, objetivo_id, ObjetivoNoEncontrado
+        )
 
     def _hoy(self, usuario: Usuario) -> date:
         """Devuelve la fecha actual en la zona horaria del usuario."""

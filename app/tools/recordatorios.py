@@ -8,7 +8,6 @@ from app.tools.esquemas import (
     ListarRecordatorios,
     ProgramarRecordatorio,
 )
-from app.tools.resolucion import resolver_por_nombre
 
 
 def herramientas_recordatorios(
@@ -19,12 +18,7 @@ def herramientas_recordatorios(
     def recordatorio_id(usuario_id, argumentos):
         if argumentos["recordatorio_id"] is not None:
             return argumentos["recordatorio_id"]
-        return resolver_por_nombre(
-            argumentos["mensaje"],
-            servicio.listar_recordatorios(usuario_id),
-            lambda recordatorio: recordatorio.mensaje,
-            "recordatorios",
-        )
+        return servicio.resolver_recordatorio_id(usuario_id, argumentos["mensaje"])
 
     return [
         Herramienta(

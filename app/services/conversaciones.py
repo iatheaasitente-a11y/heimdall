@@ -8,7 +8,6 @@ from uuid import UUID
 
 from app.domain.message import Conversacion, Mensaje, RolMensaje
 from app.domain.relations import historial_para_modelo as preparar_historial
-from app.domain.user import Usuario
 from app.repositories.interfaces import (
     RepositorioConversaciones,
     RepositorioMensajes,
@@ -18,7 +17,8 @@ from app.schemas.message import ConversacionSchema, MensajeSchema
 from app.services.errores import (
     ConversacionCerrada,
     ConversacionNoEncontrada,
-    UsuarioNoEncontrado,
+    exigir_usuario,
+    obtener_entidad_de_usuario,
 )
 
 
@@ -50,7 +50,7 @@ class ServicioConversaciones:
             pydantic.ValidationError: Si el título queda vacío o la fecha no
                 lleva zona horaria.
         """
-        self._exigir_usuario(usuario_id)
+        exigir_usuario(self._usuarios.obtener, usuario_id)
         conversacion = Conversacion(
             usuario_id=usuario_id,
             titulo=titulo.strip(),
@@ -78,7 +78,7 @@ class ServicioConversaciones:
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
         """
-        self._exigir_usuario(usuario_id)
+        exigir_usuario(self._usuarios.obtener, usuario_id)
         return self._conversaciones.listar_por_usuario(
             usuario_id, solo_activas=solo_activas
         )
@@ -186,18 +186,12 @@ class ServicioConversaciones:
         return preparar_historial(ultimos, limite)
 
     def _obtener(self, usuario_id: UUID, conversacion_id: UUID) -> Conversacion:
-        """Devuelve una conversación del usuario o lanza ``ConversacionNoEncontrada``."""
-        conversacion = self._conversaciones.obtener(conversacion_id)
-        if conversacion is None or conversacion.usuario_id != usuario_id:
-            raise ConversacionNoEncontrada(conversacion_id)
-        return conversacion
-
-    def _exigir_usuario(self, usuario_id: UUID) -> Usuario:
-        """Devuelve el usuario o lanza ``UsuarioNoEncontrado``."""
-        usuario = self._usuarios.obtener(usuario_id)
-        if usuario is None:
-            raise UsuarioNoEncontrado(usuario_id)
-        return usuario
+        return obtener_entidad_de_usuario(
+            self._conversaciones.obtener,
+            usuario_id,
+            conversacion_id,
+            ConversacionNoEncontrada,
+        )
 
     @staticmethod
     def _exigir_activa(conversacion: Conversacion) -> None:
