@@ -13,6 +13,7 @@
 - Recordatorio automático al crear cita: al crear un evento se genera un aviso para su inicio.
 - Eventos de todo el día: al crear un evento con `todo_el_dia=True`, se ajusta al día completo.
 - Repeticiones semanales/mensuales: campo `repeticion` con valores `semanal` o `mensual`, y método `siguiente_ocurrencia()` para calcular la próxima fecha.
+- Cancelar/reprogramar por título: `ServicioAgendaPorTitulo` permite cancelar o reprogramar un evento usando su título en vez de su ID.
 
 ## Flujo de agendado actual
 
@@ -30,11 +31,11 @@
 | 2 | Recordatorio automático al crear cita | Hecha |
 | 3 | Eventos de todo el día | Hecha |
 | 4 | Repeticiones semanales/mensuales | Hecha |
-| 5 | Cancelar/reprogramar por título | Pendiente |
+| 5 | Cancelar/reprogramar por título | Hecha |
 | 6 | Recordatorios recurrentes | Pendiente |
 | 7 | Avisos previos configurables | Pendiente |
 | 8 | Búsqueda por rango con filtro | Pendiente |
 
 ## Próximo paso recomendado
 
-Mejora 5: cancelar/reprogramar por título.
+Mejora 6: recordatorios recurrentes.
