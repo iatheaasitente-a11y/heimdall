@@ -5,6 +5,8 @@ from datetime import date
 from enum import StrEnum
 from uuid import UUID, uuid4
 
+from app.domain.errores import TransicionNoPermitida
+
 
 class EstadoObjetivo(StrEnum):
     """Situación de un objetivo."""
@@ -53,12 +55,47 @@ class Objetivo:
             self.estado = EstadoObjetivo.COMPLETADO
 
     def pausar(self) -> None:
-        """Pasa el objetivo a ``PAUSADO``."""
-        self.estado = EstadoObjetivo.PAUSADO
+        """Pasa el objetivo de ``ACTIVO`` a ``PAUSADO``.
+
+        Raises:
+            TransicionNoPermitida: Si el objetivo no está activo.
+        """
+        self._cambiar_desde({EstadoObjetivo.ACTIVO}, EstadoObjetivo.PAUSADO)
+
+    def reanudar(self) -> None:
+        """Pasa el objetivo de ``PAUSADO`` a ``ACTIVO``.
+
+        Raises:
+            TransicionNoPermitida: Si el objetivo no está pausado.
+        """
+        self._cambiar_desde({EstadoObjetivo.PAUSADO}, EstadoObjetivo.ACTIVO)
 
     def cancelar(self) -> None:
-        """Pasa el objetivo a ``CANCELADO``."""
-        self.estado = EstadoObjetivo.CANCELADO
+        """Pasa el objetivo activo o pausado a ``CANCELADO``.
+
+        Raises:
+            TransicionNoPermitida: Si el objetivo está completado o cancelado.
+        """
+        self._cambiar_desde(
+            {EstadoObjetivo.ACTIVO, EstadoObjetivo.PAUSADO},
+            EstadoObjetivo.CANCELADO,
+        )
+
+    def restablecer(self) -> None:
+        """Devuelve el objetivo a ``ACTIVO`` sin modificar su progreso."""
+        self.estado = EstadoObjetivo.ACTIVO
+
+    def _cambiar_desde(
+        self, origenes: set[EstadoObjetivo], destino: EstadoObjetivo
+    ) -> None:
+        """Cambia el estado únicamente si está dentro de los estados permitidos.
+
+        Raises:
+            TransicionNoPermitida: Si el estado actual no se permite como origen.
+        """
+        if self.estado not in origenes:
+            raise TransicionNoPermitida(self.estado, destino)
+        self.estado = destino
 
     def dias_restantes(self, hoy: date) -> int | None:
         """Devuelve los días que faltan hasta la fecha límite.
