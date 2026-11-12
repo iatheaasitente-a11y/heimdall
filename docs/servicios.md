@@ -18,6 +18,14 @@ valida con los esquemas, aplica las reglas del dominio y guarda con los reposito
 | `ServicioObjetivos` | crear, consultar y listar; actualizar progreso; gestionar estados y vencimientos |
 | `ServicioConversaciones` | iniciar, renombrar y cerrar conversaciones; añadir y consultar mensajes e historial |
 
+## Herramientas (`app/tools/`)
+
+Las herramientas validan argumentos con modelos Pydantic y publican su esquema
+JSON. Reciben `usuario_id` por separado para que el modelo no pueda elegirlo.
+Delegan en servicios y devuelven resultados JSON; los errores de servicio se
+representan como `{"ok": false, "error": "…"}`. No se exponen las operaciones
+internas `marcar_enviado` ni `vencidos` de recordatorios.
+
 ## Coherencia entre agenda y recordatorios
 Si `ServicioAgenda` recibe el repositorio de recordatorios:
 - Al cancelar o completar un evento se cancelan sus avisos pendientes.

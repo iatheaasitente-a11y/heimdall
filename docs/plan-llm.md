@@ -15,8 +15,8 @@ Principio: el modelo interpreta, Python calcula, SQLite conserva. El modelo no e
 ## Fases
 | # | Fase | Estado |
 |---|---|---|
-| 1 | Cerrar base: servicios de Hábitos, Objetivos y Conversaciones; resolver puntos a revisar; CI | pendiente |
-| 2 | Herramientas (`app/tools`) con esquema JSON sobre los servicios | pendiente |
+| 1 | Cerrar base: servicios de Hábitos, Objetivos y Conversaciones; resolver puntos a revisar; CI | hecho |
+| 2 | Herramientas (`app/tools`) con esquema JSON sobre los servicios | hecho |
 | 3 | Capa `llm`: interfaz, motor local, motor nube opcional y motor falso para tests | pendiente |
 | 4 | Agente abstracto y agente personal (reglas primero) | pendiente |
 | 5 | Fábrica, router y chatbot por terminal; medición con CSV de frases | pendiente |
