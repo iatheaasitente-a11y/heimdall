@@ -1,35 +1,29 @@
-﻿# Mejoras de agenda — Heimdall
+# Mejoras de agenda - Heimdall
 
 ## Estado actual
 
-- **817 tests en verde** (0 fallos).
-- Rama: `refactor/unificar-duplicados`.
-- Último commit: `39c9eba` — *feat: recordatorios ligados a citas, menu de conflictos y lugar/notas*.
-
-## Funciones ya implementadas
-
 - Crear, cancelar, completar y reprogramar eventos.
 - Consultar por día, rango (semana, mes), próximo evento y huecos libres.
-- Recordatorios ligados a citas: "recuérdame el dentista 30 minutos antes".
 - Menú de conflictos: 1 = otra hora, 2 = mover el existente, 3 = cancelar y crear.
-- Lugar y notas en los eventos: "en la clinica sonrisa, notas: llevar tarjeta".
+- Lugar y notas en los eventos.
 - Eventos recurrentes: varios días a la misma hora.
 - Recordatorios con fecha y hora explícitas.
 - Cancelar recordatorio con confirmación.
+- Agendado paso a paso: si falta título, día, hora o duración, el agente pregunta de uno en uno.
 
 ## Flujo de agendado actual
 
-1. "Crea un evento dentista mañana a las 10 durante 1 hora" → propuesta.
-2. "sí" → se crea.
-3. Si hay conflicto → menú de 3 opciones.
-4. "recuérdame el dentista 30 minutos antes" → propuesta de recordatorio.
-5. "sí" → se crea el recordatorio.
+1. "Quiero agendar dentista" -> pregunta título si falta.
+2. "mañana" -> pregunta hora.
+3. "a las 10" -> pregunta duración.
+4. "1 hora" -> crea el evento.
+5. Si el mensaje ya trae todo, las reglas lo crean de una vez.
 
 ## Roadmap de mejoras
 
 | # | Mejora | Estado |
 |---|--------|--------|
-| 1 | Agendar paso a paso (título → día → hora → duración) | Pendiente |
+| 1 | Agendar paso a paso | Hecha |
 | 2 | Recordatorio automático al crear cita | Pendiente |
 | 3 | Eventos de todo el día | Pendiente |
 | 4 | Repeticiones semanales/mensuales | Pendiente |
@@ -40,4 +34,4 @@
 
 ## Próximo paso recomendado
 
-**Mejora 1: agendar paso a paso.** Si falta algo, el agente pregunta de una en una: título → día → hora → duración. Mejora mucho la UX y encaja con lo que ya hay.
+Mejora 2: recordatorio automático al crear cita.
