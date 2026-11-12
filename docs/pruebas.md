@@ -1,6 +1,8 @@
 # Pruebas
 
 Se ejecutan con `pytest -q` (configuración en `pytest.ini`, `pythonpath = .`).
+Instala las dependencias de desarrollo con `pip install -r requirements-dev.txt`;
+`requirements.txt` contiene las dependencias de ejecución.
 Esperado hoy: 272 tests en verde.
 
 | Archivo | Tests |

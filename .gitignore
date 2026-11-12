@@ -1,8 +1,14 @@
 .venv/
 __pycache__/
 .env
+.env.*
+!.env.example
 .pytest_cache/
 .vscode/
+*.log
+*.wav
+*.oga
+tmp/
 
 # Bases de datos locales
 data/*.sqlite*
