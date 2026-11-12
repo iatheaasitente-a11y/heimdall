@@ -11,7 +11,7 @@ valida con los esquemas, aplica las reglas del dominio y guarda con los reposito
 ## Servicios
 | Servicio | Casos de uso |
 |---|---|
-| `ServicioUsuarios` | registrar, obtener, cambiar zona horaria, desactivar |
+| `ServicioUsuarios` | registrar, obtener, cambiar zona horaria y preferencias, desactivar |
 | `ServicioAgenda` | crear, cancelar, completar y reprogramar eventos; eventos y celdas del día |
 | `ServicioRecordatorios` | programar avisos libres o de un evento, cancelar, marcar enviado, pendientes del día y vencidos |
 | `ServicioHabitos` | crear, listar y desactivar hábitos; registrar y borrar progreso; progreso del día y racha |
@@ -33,6 +33,27 @@ aceptan su UUID o su nombre/título. La búsqueda es exacta e ignora mayúsculas
 tildes y espacios exteriores; solo consulta datos del usuario actual. Si no
 hay una coincidencia única, devuelve un error con `candidatos` para aclarar la
 selección. También se ofrecen herramientas para listar hábitos y recordatorios.
+
+## Adaptador Telegram
+
+`ConectorTelegram` procesa actualizaciones de chats privados y usa el mapeo
+inyectado a usuarios existentes. El ciclo recibe callbacks de confirmación,
+reversión y pausa para aislar cada actualización: solo avanza el offset después
+de procesarla y confirmarla. Los fallos se registran sin el detalle de la
+excepción y se vuelven a intentar tras la pausa. El formateador expone texto y
+nombres de candidatos, no JSON ni UUID internos. No se añade punto de arranque;
+siguen pendientes la política de identidad y la conexión del ciclo a la aplicación.
+Si no se puede revertir una actualización fallida, el ciclo se detiene para no
+confirmar cambios parciales.
+
+| Hallazgo | Estado en esta fase |
+|---|---|
+| 18 | Corregido: confirmación por actualización con callback inyectado. |
+| 19 | Pendiente: falta decidir el punto de arranque y el origen del mapeo de identidad. |
+| 20 | Corregido: el offset solo avanza tras confirmar; un fallo no salta actualizaciones. |
+| 21 | Corregido: fallos aislados, registro sin detalles y pausa inyectada. |
+| 22 | Corregido: salida de texto sin UUID internos. |
+| 23 | Corregido: solo se aceptan chats privados. |
 
 ## Coherencia entre agenda y recordatorios
 Si `ServicioAgenda` recibe el repositorio de recordatorios:
