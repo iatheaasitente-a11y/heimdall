@@ -1,6 +1,7 @@
 """Límites de consultas y confianza para proteger el uso del motor."""
 
 from collections.abc import Mapping, Sequence
+from math import isfinite
 from uuid import UUID
 
 from app.llm.interfaz import ErrorRespuestaLLM, MotorLLM, RespuestaEstructurada
@@ -47,6 +48,15 @@ class FrenosLLM:
             respuesta = self._motor.interpretar(historial, herramientas)
         except (OSError, ErrorRespuestaLLM):
             return None
-        if respuesta.confianza < self._confianza_minima:
+        confianza = getattr(respuesta, "confianza", None)
+        if (
+            isinstance(confianza, bool)
+            or not isinstance(confianza, (int, float))
+            or not isfinite(confianza)
+            or not 0 <= confianza <= 1
+            or confianza < self._confianza_minima
+        ):
+            return None
+        if not isinstance(respuesta, RespuestaEstructurada):
             return None
         return respuesta

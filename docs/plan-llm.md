@@ -17,6 +17,9 @@ escribe números ni fechas.
 8. El `usuario_id` lo pone el sistema, nunca el modelo.
 9. Las reglas temporales usan un parser puro con reloj/zona recibidos como
    argumentos; un valor ambiguo se aclara en vez de completarse por intuición.
+10. La respuesta se valida contra el catálogo después del motor; confianza
+    ausente o ilegible es baja. El contexto incluye los últimos cuatro turnos
+    y la aclaración pendiente, si existe.
 
 ## Fases
 | # | Fase | Estado |

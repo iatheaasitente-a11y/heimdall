@@ -69,7 +69,10 @@ listar hábitos y recordatorios.
 La capa `app/llm` devuelve únicamente intención, campos y confianza. Está
 apagada por defecto; Ollama usa `urllib` con timeout y sin reintentos, mientras
 que el motor nube permanece como esqueleto sin credenciales ni red. Los frenos
-limitan consultas por conversación y descartan respuestas de baja confianza.
+limitan consultas por conversación y tratan la confianza ausente o inválida
+como baja. Antes de ejecutar, el agente comprueba que la herramienta y sus
+argumentos pertenecen al catálogo; al motor solo pasa los últimos cuatro turnos
+y, si hay una aclaración pendiente, la pregunta bajo `esperando`.
 
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
 Las reglas interpretan fechas con `app/domain/lenguaje_fechas.py`; si faltan

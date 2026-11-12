@@ -1,5 +1,6 @@
 import json
 from io import BytesIO
+from types import SimpleNamespace
 from urllib.error import URLError
 from uuid import uuid4
 from unittest.mock import patch
@@ -224,6 +225,26 @@ def test_motor_nube_es_un_esqueleto_sin_red_ni_clave():
 def test_frenos_descartan_respuestas_de_baja_confianza():
     motor = MotorFalso([RespuestaEstructurada("intencion", {}, 0.4)])
     frenos = FrenosLLM(motor, confianza_minima=0.65)
+    assert frenos.consultar(uuid4(), [], []) is None
+
+
+@pytest.mark.parametrize(
+    "respuesta",
+    [
+        SimpleNamespace(),
+        SimpleNamespace(confianza="alta"),
+        SimpleNamespace(confianza=float("nan")),
+    ],
+)
+def test_frenos_descartan_confianza_ausente_o_ilegible(monkeypatch, respuesta):
+    motor = MotorFalso()
+    monkeypatch.setattr(
+        motor,
+        "interpretar",
+        lambda _historial, _herramientas: respuesta,
+    )
+    frenos = FrenosLLM(motor)
+
     assert frenos.consultar(uuid4(), [], []) is None
 
 

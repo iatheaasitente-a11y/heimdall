@@ -42,6 +42,12 @@ registrar o consultar hábitos, actualizar objetivos y listar el día. Si falta
 una fecha, una hora queda sin franja, la duración de un evento o un nombre no
 es único, pregunta antes de ejecutar la operación.
 
+## Validación posterior y contexto
+
+Hecho: el agente descarta respuestas fuera del catálogo, considera baja una
+confianza ausente o ilegible y pasa al motor los últimos cuatro turnos junto
+con la pregunta pendiente, si la hay.
+
 ## Puntos a revisar (por confirmar si son fallos)
 1. `de_usuario` exige `usuario_id`; `Mensaje` y `RegistroHabito` no lo tienen.
 2. RESUELTO: `hay_conflicto` solo compara eventos del mismo usuario.
