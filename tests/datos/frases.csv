@@ -1,31 +1,101 @@
-frase,intencion
-¿Qué tengo hoy?,resumen_del_dia
-¿Qué tengo para hoy?,resumen_del_dia
-¿Qué hay hoy?,resumen_del_dia
-Enséñame mi resumen del día,resumen_del_dia
-¿Qué eventos tengo hoy?,agenda_eventos_del_dia
-Muéstrame mi agenda de hoy,agenda_eventos_del_dia
-¿Qué citas tengo esta tarde?,agenda_eventos_del_dia
-Lista los eventos del día,agenda_eventos_del_dia
-Tengo algo programado para hoy,agenda_eventos_del_dia
-Crea una cita para mañana,agenda_crear_evento
-Cancela mi próxima reunión,agenda_cancelar_evento
-¿Qué hábitos tengo pendientes?,habitos_progreso_del_dia
-Muéstrame el progreso de mis hábitos,habitos_progreso_del_dia
-¿Cuánto llevo de lectura hoy?,habitos_progreso_del_dia
-Registra que corrí cinco kilómetros,habitos_registrar_progreso
-Quiero crear un hábito de meditación,habitos_crear
-¿Cuál es mi racha de ejercicio?,habitos_racha
-Añade dos vasos de agua a mi progreso,habitos_registrar_progreso
-¿Qué objetivos tengo activos?,objetivos_listar
-Muéstrame mis objetivos,objetivos_listar
-Pausa mi objetivo de ahorrar,objetivos_pausar
-Reanuda el objetivo del curso,objetivos_reanudar
-Quiero crear un objetivo nuevo,objetivos_crear
-Cancela mi objetivo de correr,objetivos_cancelar
-Actualiza mi progreso al cincuenta por ciento,objetivos_progreso
-¿Qué recordatorios tengo hoy?,recordatorios_pendientes_del_dia
-Muéstrame los avisos pendientes,recordatorios_pendientes_del_dia
-Recuérdame llamar a Marta mañana,recordatorios_programar
-Cancela el recordatorio del dentista,recordatorios_cancelar
-Resume mi día de hoy,resumen_del_dia
+frase,intencion,conjunto
+¿Qué eventos tengo hoy?,agenda_eventos_del_dia,ajuste
+Muéstrame la agenda de hoy,agenda_eventos_del_dia,ajuste
+Lista mis citas para hoy,agenda_eventos_del_dia,ajuste
+¿A qué hora es mi próxima reunión?,agenda_eventos_del_dia,ajuste
+Crea una reunión mañana a las cinco de la tarde durante una hora,agenda_crear_evento,ajuste
+Apunta una cita con Ana pasado mañana a las cuatro de la tarde durante 30 minutos,agenda_crear_evento,ajuste
+Programa una cita el lunes a las diez de la mañana durante una hora,agenda_crear_evento,ajuste
+Mañana a las cinco de la tarde gimnasio durante una hora,agenda_crear_evento,ajuste
+Reagenda la reunión para mañana,agenda_reprogramar_evento,ajuste
+Cancela mi próxima reunión,agenda_cancelar_evento,ajuste
+Anula mi próxima cita,agenda_cancelar_evento,ajuste
+¿Puedes quitar el evento del jueves?,agenda_cancelar_evento,ajuste
+¿Qué tengo programado para mañana?,agenda_eventos_del_dia,ajuste
+Lista los eventos del día,agenda_eventos_del_dia,ajuste
+¿Qué reuniones tengo mañana?,agenda_eventos_del_dia,reserva
+Quiero mover mi cita al viernes,agenda_reprogramar_evento,reserva
+Cambia la hora del evento de mañana,agenda_reprogramar_evento,reserva
+Cancela la reunión de mañana por favor,agenda_cancelar_evento,reserva
+Añade una cita al calendario para el martes a las tres de la tarde durante una hora,agenda_crear_evento,reserva
+No crees el evento todavía,sin_intencion,reserva
+He bebido dos litros de agua hoy,habitos_registrar_progreso,ajuste
+Hoy he leído veinte páginas,habitos_registrar_progreso,ajuste
+Registra que corrí cinco kilómetros,habitos_registrar_progreso,ajuste
+¿Cuánto llevo de agua hoy?,habitos_progreso_del_dia,ajuste
+¿Qué racha tengo de correr hoy?,habitos_racha,ajuste
+Quiero crear un hábito de meditación,habitos_crear,ajuste
+Muéstrame mis hábitos,habitos_listar,ajuste
+He hecho diez minutos de yoga hoy,habitos_registrar_progreso,ajuste
+Añade dos vasos de agua a mi progreso,habitos_registrar_progreso,ajuste
+¿Cuánto he leído hoy de inglés?,habitos_progreso_del_dia,ajuste
+¿Cuál es mi racha de ejercicio hoy?,habitos_racha,ajuste
+Quiero registrar progreso de caminar hoy,habitos_registrar_progreso,ajuste
+Crea el hábito de estirar,habitos_crear,ajuste
+Dame el total de agua de ayer,habitos_progreso_del_dia,ajuste
+¿Cuánto caminé anteayer?,habitos_progreso_del_dia,reserva
+He corrido tres kilómetros hoy,habitos_registrar_progreso,reserva
+Registra dos vasos de agua hoy,habitos_registrar_progreso,reserva
+Desactiva mi hábito de lectura,habitos_listar,reserva
+No apuntes el agua de hoy,sin_intencion,reserva
+¿Qué hábitos he completado hoy?,habitos_progreso_del_dia,reserva
+Actualiza mi objetivo Leer 10 libros al 25%,objetivos_actualizar_progreso,ajuste
+¿Qué objetivos tengo activos?,objetivos_listar,ajuste
+Muéstrame mis objetivos,objetivos_listar,ajuste
+Crea un objetivo para correr 5 km,objetivos_crear,ajuste
+Pausa mi objetivo de correr,objetivos_pausar,ajuste
+Reanuda el objetivo del curso,objetivos_reanudar,ajuste
+Cancela mi objetivo de ahorrar,objetivos_cancelar,ajuste
+Quiero avanzar el objetivo de lectura al 50%,objetivos_actualizar_progreso,ajuste
+Actualiza el progreso de mi objetivo en un 80%,objetivos_actualizar_progreso,ajuste
+¿Cuánto me falta para completar mi objetivo?,objetivos_listar,ajuste
+Lista solo mis objetivos activos,objetivos_listar,ajuste
+Finalicé mi objetivo de aprender Python,objetivos_actualizar_progreso,ajuste
+Cambia el objetivo correr al 60%,objetivos_actualizar_progreso,ajuste
+Quiero crear un objetivo nuevo,objetivos_crear,ajuste
+Sube mi objetivo de lectura al 40%,objetivos_actualizar_progreso,reserva
+¿Qué metas me quedan?,objetivos_listar,reserva
+No pauses el objetivo de ahorro,sin_intencion,reserva
+Ajusta el objetivo fitness,objetivos_actualizar_progreso,reserva
+Pausa el objetivo de aprender español,objetivos_pausar,reserva
+Muestra mis objetivos por fecha límite,objetivos_listar,reserva
+Recuérdame llamar a mamá el jueves a las diez de la mañana,recordatorios_programar,ajuste
+Recuérdame enviar el informe mañana a las cinco de la tarde,recordatorios_programar,ajuste
+Programa un recordatorio para comprar leche el sábado a las nueve de la mañana,recordatorios_programar,ajuste
+¿Qué recordatorios tengo hoy?,recordatorios_pendientes_del_dia,ajuste
+Muestra mis avisos pendientes,recordatorios_listar,ajuste
+Cancela el recordatorio del dentista,recordatorios_cancelar,ajuste
+Recuérdame regar las plantas,recordatorios_programar,ajuste
+Recuérdame pagar la luz el viernes,recordatorios_programar,ajuste
+Programa un aviso para mañana,recordatorios_programar,ajuste
+Pon un recordatorio para cita médica el 15 de noviembre a las nueve de la mañana,recordatorios_programar,ajuste
+Anula el aviso de la cita,recordatorios_cancelar,ajuste
+Programa un recordatorio para recoger a Marta el jueves a las diez de la noche,recordatorios_programar,ajuste
+¿Qué tengo pendiente hoy?,recordatorios_pendientes_del_dia,ajuste
+Cancela mi recordatorio de mañana,recordatorios_cancelar,ajuste
+Recuérdame llamar mañana a las diez,recordatorios_programar,reserva
+¿Puedes recordarme recoger el paquete el lunes a las dos de la tarde?,recordatorios_programar,reserva
+¿Qué avisos tengo programados?,recordatorios_listar,reserva
+Deja de recordarme el dentista,sin_intencion,reserva
+Recuérdame llamar a Ana el viernes a las siete de la tarde,recordatorios_programar,reserva
+Programa un recordatorio para mañana a las cuatro de la tarde,recordatorios_programar,reserva
+¿Qué tengo hoy?,resumen_del_dia,ajuste
+¿Qué tengo para hoy?,resumen_del_dia,ajuste
+¿Qué hay hoy?,resumen_del_dia,ajuste
+Enséñame mi resumen del día,resumen_del_dia,ajuste
+Lista lo de hoy,resumen_del_dia,ajuste
+Lista mis eventos de hoy,resumen_del_dia,ajuste
+¿Qué hay para hoy?,resumen_del_dia,ajuste
+Resume mi día de hoy,resumen_del_dia,ajuste
+Muéstrame los pendientes de hoy,resumen_del_dia,ajuste
+¿Qué citas tengo hoy?,agenda_eventos_del_dia,ajuste
+Dime cómo va mi día,resumen_del_dia,ajuste
+Lo de hoy por favor,resumen_del_dia,ajuste
+¿Tengo algo hoy?,resumen_del_dia,ajuste
+¿Qué tengo programado hoy?,resumen_del_dia,ajuste
+¿Qué queda para hoy?,resumen_del_dia,reserva
+Lista lo de hoy por favor,resumen_del_dia,reserva
+Necesito ver mi agenda para hoy,resumen_del_dia,reserva
+Hazme el resumen de hoy,resumen_del_dia,reserva
+¿Qué hay para hoy en el calendario?,resumen_del_dia,reserva
+¿Qué tengo para hoy de hábitos?,resumen_del_dia,reserva

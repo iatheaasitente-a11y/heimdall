@@ -48,6 +48,15 @@ Hecho: el agente descarta respuestas fuera del catálogo, considera baja una
 confianza ausente o ilegible y pasa al motor los últimos cuatro turnos junto
 con la pregunta pendiente, si la hay.
 
+## Banco de frases
+
+Hecho: `tests/datos/frases.csv` contiene 100 frases etiquetadas, con 70 para
+ajuste y 30 reservadas. La medición actual de reglas alcanza el 30,0 % de
+resultados correctos en ambos conjuntos (21/70 y 9/30); la cobertura de
+respuestas es 48,6 % y 43,3 %, respectivamente. Un resultado correcto es la
+ejecución de la herramienta etiquetada o, para `sin_intencion`, que no se
+active ninguna regla. Las reglas no se ajustaron con el conjunto de reserva.
+
 ## Puntos a revisar (por confirmar si son fallos)
 1. `de_usuario` exige `usuario_id`; `Mensaje` y `RegistroHabito` no lo tienen.
 2. RESUELTO: `hay_conflicto` solo compara eventos del mismo usuario.

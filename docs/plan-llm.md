@@ -20,6 +20,9 @@ escribe números ni fechas.
 10. La respuesta se valida contra el catálogo después del motor; confianza
     ausente o ilegible es baja. El contexto incluye los últimos cuatro turnos
     y la aclaración pendiente, si existe.
+11. El banco de frases tiene 70 ejemplos de ajuste y 30 de reserva. La
+    medición de reglas fase 12 obtuvo 21/70 (30,0 %) y 9/30 (30,0 %) resultados
+    correctos, respectivamente, sin ajustar reglas con la reserva.
 
 ## Fases
 | # | Fase | Estado |
