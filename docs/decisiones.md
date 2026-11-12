@@ -13,3 +13,4 @@
 | 9 | `resumen_del_dia` sin modelo de lenguaje | Respuesta rápida, exacta y comprobable |
 | 10 | Medir con un CSV de frases antes de añadir canales | Lección de femix: no crecer antes de medir |
 | 11 | Estados con transiciones estrictas | Un objeto cerrado no se reabre por accidente; la corrección manual es explícita (`restablecer()`) |
+| 12 | Conservar objetivos cerrados | Historial consultable; `restablecer()` es explícito |

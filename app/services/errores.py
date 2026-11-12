@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from app.domain.errores import TransicionNoPermitida
@@ -100,6 +100,33 @@ class RegistroNoEncontrado(ErrorDeServicio):
         """Guarda el identificador buscado y construye el mensaje."""
         super().__init__(f"No existe el registro {registro_id}.")
         self.registro_id = registro_id
+
+
+class ObjetivoNoEncontrado(ErrorDeServicio):
+    """No existe el objetivo solicitado."""
+
+    def __init__(self, objetivo_id: UUID) -> None:
+        """Guarda el identificador buscado y construye el mensaje."""
+        super().__init__(f"No existe el objetivo {objetivo_id}.")
+        self.objetivo_id = objetivo_id
+
+
+class ObjetivoNoActivo(ErrorDeServicio):
+    """El objetivo no está activo y no admite cambios de progreso."""
+
+    def __init__(self, nombre: str) -> None:
+        """Guarda el nombre del objetivo y construye el mensaje."""
+        super().__init__(f"El objetivo «{nombre}» no está activo.")
+        self.nombre = nombre
+
+
+class FechaLimiteEnElPasado(ErrorDeServicio):
+    """La fecha límite indicada ya ha pasado."""
+
+    def __init__(self, fecha_limite: date) -> None:
+        """Guarda la fecha límite rechazada y construye el mensaje."""
+        super().__init__(f"La fecha límite ({fecha_limite:%Y-%m-%d}) ya ha pasado.")
+        self.fecha_limite = fecha_limite
 
 
 @contextmanager

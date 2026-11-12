@@ -15,6 +15,7 @@ valida con los esquemas, aplica las reglas del dominio y guarda con los reposito
 | `ServicioAgenda` | crear, cancelar, completar y reprogramar eventos; eventos y celdas del día |
 | `ServicioRecordatorios` | programar avisos libres o de un evento, cancelar, marcar enviado, pendientes del día y vencidos |
 | `ServicioHabitos` | crear, listar y desactivar hábitos; registrar y borrar progreso; progreso del día y racha |
+| `ServicioObjetivos` | crear, consultar y listar; actualizar progreso; gestionar estados y vencimientos |
 
 ## Coherencia entre agenda y recordatorios
 Si `ServicioAgenda` recibe el repositorio de recordatorios:
@@ -25,12 +26,24 @@ Si `ServicioAgenda` recibe el repositorio de recordatorios:
 ## Transiciones de estado
 El dominio solo permite Evento PROGRAMADO a COMPLETADO o CANCELADO, y Recordatorio PENDIENTE a ENVIADO o CANCELADO. Los servicios convierten el error del dominio en `CambioDeEstadoNoPermitido`. `reprogramar_evento` rechaza los eventos que no estén programados (`EventoNoActivo`). El programador de avisos debe capturar `CambioDeEstadoNoPermitido` en `marcar_enviado`, por si el aviso se canceló entre listarlo y enviarlo.
 
+## Estados de los objetivos
+
+Los objetivos pasan de ACTIVO a PAUSADO o CANCELADO, y de PAUSADO a ACTIVO o
+CANCELADO. Al llegar al 100 % de progreso pasan a COMPLETADO. Los objetivos
+completados y cancelados se conservan y siempre se pueden consultar; no admiten
+cambios de progreso ni transiciones normales. El dominio ofrece `restablecer()`
+como corrección manual explícita, que vuelve a ACTIVO sin modificar el progreso.
+`ServicioObjetivos` solo actualiza progreso de objetivos activos y traduce las
+transiciones no permitidas a `CambioDeEstadoNoPermitido`.
+
 ## Permisos por usuario
 Toda operación sobre un evento o recordatorio concreto recibe el `usuario_id` de quien la pide
 y solo actúa si el elemento es suyo. Si es de otro usuario, responde igual que si no existiera
 (`EventoNoEncontrado` o `RecordatorioNoEncontrado`), para no revelar que existe.
 `marcar_enviado` y `vencidos` son operaciones internas del programador de avisos y no se
 ofrecerán como herramientas del chatbot.
+Las operaciones sobre objetivos siguen la misma regla y usan
+`ObjetivoNoEncontrado` para objetivos inexistentes o ajenos.
 
 ## Errores
 | Error | Cuándo |
@@ -45,6 +58,9 @@ ofrecerán como herramientas del chatbot.
 | `HabitoNoEncontrado` | El hábito no existe o es de otro usuario |
 | `HabitoInactivo` | El hábito está desactivado y no admite registros |
 | `RegistroNoEncontrado` | El registro no existe o no es del hábito indicado |
+| `ObjetivoNoEncontrado` | El objetivo no existe o es de otro usuario |
+| `ObjetivoNoActivo` | El objetivo no está activo y no admite cambios de progreso |
+| `FechaLimiteEnElPasado` | La fecha límite indicada es anterior al día actual del usuario |
 
 Los datos mal formados (nombre vacío, zona inexistente, fechas sin zona) siguen
 lanzando `pydantic.ValidationError` o `ValueError`.
