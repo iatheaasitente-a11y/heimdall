@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.agents.fabrica import crear_agente
 from app.agents.router import Router
+from app.domain.nba.fuente import FuenteNBA
 from app.llm.interfaz import MotorLLM
 from app.repositories.sqlite_conversaciones import (
     RepositorioConversacionesSQLite,
@@ -45,6 +46,7 @@ def crear_composicion(
     reloj: Callable[[], datetime],
     motor: MotorLLM | None = None,
     modo_llm: str | None = None,
+    fuente_nba: FuenteNBA | None = None,
 ) -> Composicion:
     """Compone la aplicación sobre una conexión y dependencias inyectadas."""
     repositorio_usuarios = RepositorioUsuariosSQLite(conexion)
@@ -92,6 +94,7 @@ def crear_composicion(
         habitos,
         objetivos,
         recordatorios,
+        fuente_nba,
     )
 
     def hoy_por_usuario(usuario_id: UUID) -> date:

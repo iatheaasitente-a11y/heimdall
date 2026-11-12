@@ -7,6 +7,7 @@
         -> Agentes (personal, NBA)
           -> Servicios (lógica de aplicación)
             -> Repositorios -> SQLite
+          -> Fuente NBA (interfaz inyectada)
 
     Dominio (app/domain) y Esquemas (app/schemas) los usan todas las capas.
 
@@ -67,3 +68,7 @@ limitan consultas por conversación y descartan respuestas de baja confianza.
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
 Solo si no hay una regla aplicable y se configura un motor consulta el LLM; el
 agente no contiene lógica de negocio.
+
+El módulo NBA solo define el contrato `FuenteNBA` y una implementación falsa
+para pruebas. La herramienta se registra únicamente cuando la composición
+recibe una fuente; no hay conexiones a servicios externos ni API real.

@@ -24,4 +24,4 @@ escribe números ni fechas.
 | 3 | Capa `llm`: interfaz, motores local/nube y falso para tests | hecho |
 | 4 | Agente abstracto y agente personal (reglas primero) | hecho |
 | 5 | Fábrica, router, chatbot por terminal y medición con CSV | pendiente |
-| 6 | Extra: módulo NBA | pendiente |
+| 6 | Extra: interfaz NBA, fuente falsa y herramienta opcional | hecho |

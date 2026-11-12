@@ -24,7 +24,9 @@ Las herramientas validan argumentos con modelos Pydantic y publican su esquema
 JSON. Reciben `usuario_id` por separado para que el modelo no pueda elegirlo.
 Delegan en servicios y devuelven resultados JSON; los errores de servicio se
 representan como `{"ok": false, "error": "…"}`. No se exponen las operaciones
-internas `marcar_enviado` ni `vencidos` de recordatorios.
+internas `marcar_enviado` ni `vencidos` de recordatorios. La consulta NBA se
+registra solo si se inyecta una `FuenteNBA`; por ahora, la fuente disponible es
+falsa y no consulta APIs reales.
 
 ## Coherencia entre agenda y recordatorios
 Si `ServicioAgenda` recibe el repositorio de recordatorios:

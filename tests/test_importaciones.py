@@ -150,6 +150,7 @@ PROHIBIDOS = [
     ("agents", "import sqlite3\n"),
     ("chatbot", "from app.services.agenda import ServicioAgenda\n"),
     ("chatbot", "from app.repositories.interfaces import RepositorioEventos\n"),
+    ("chatbot", "from app.domain.nba.fuente import FuenteNBA\n"),
     ("domain", "from .user import Usuario\n"),
     ("capa_inventada", "from app.domain.user import Usuario\n"),
 ]
@@ -170,6 +171,8 @@ PERMITIDOS = [
     ("database", "import sqlite3\nfrom app.database.fechas import a_texto\n"),
     ("chatbot", "from app.composicion import crear_composicion\n"
                 "from app.llm.ollama import MotorOllama\n"),
+    ("chatbot", "from app.domain.message import RolMensaje\n"
+                "from app.database.connection import sesion_sqlite\n"),
 ]
 
 

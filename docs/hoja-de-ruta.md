@@ -9,11 +9,11 @@
 6. Servicios — hecho (Usuarios, Agenda, Recordatorios, Hábitos, Objetivos y
    Conversaciones)
 7. Clase abstracta del agente — pendiente
-8. Agentes concretos (personal, NBA) — pendiente
+8. Agentes concretos (personal) — hecho; NBA, pendiente
 9. Fábrica y router — pendiente
 10. Chatbot (herramientas, interfaz) — pendiente
 
-Fuera de alcance por ahora: FastAPI, Telegram, predicciones NBA, modelo de IA.
+Fuera de alcance por ahora: FastAPI, Telegram y una fuente real de datos NBA.
 
 ## Puntos a revisar (por confirmar si son fallos)
 1. `de_usuario` exige `usuario_id`; `Mensaje` y `RegistroHabito` no lo tienen.

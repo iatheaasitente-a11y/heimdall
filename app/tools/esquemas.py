@@ -114,3 +114,9 @@ class ResumenDia(Parametros):
     """Día que se quiere resumir."""
 
     dia: date
+
+
+class ConsultaNBA(Parametros):
+    """Consulta de texto libre para la fuente NBA."""
+
+    consulta: str = Field(min_length=1)
