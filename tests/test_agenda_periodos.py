@@ -92,8 +92,11 @@ def test_rechaza_evento_que_solapa():
         "crea un evento reunion manana a las 10 durante 1 hora",
     )
 
-    assert resultado["ok"] is False
-    assert "Ya tienes" in resultado["error"]
+    assert resultado["ok"] is True
+    assert "Ya tienes" in resultado["datos"]
+    assert "1. Elegir otra hora" in resultado["datos"]
+    assert "2. Mover el evento existente" in resultado["datos"]
+    assert "3. Cancelar el existente" in resultado["datos"]
 
 
 def test_avisa_si_repite_nombre_otra_hora():
@@ -108,3 +111,34 @@ def test_avisa_si_repite_nombre_otra_hora():
 
     assert resultado["ok"] is True
     assert "Ya tienes un evento con ese nombre" in resultado["datos"]
+
+
+def test_avisa_si_repite_nombre_en_los_proximos_dias():
+    aplicacion, usuario = _entorno()
+    _crear_evento(aplicacion, usuario, 16, 10)
+
+    resultado = aplicacion.router.procesar(
+        usuario.id,
+        uuid4(),
+        "crea un evento gimnasio el 20 de noviembre a las 18 durante 1 hora",
+    )
+
+    assert resultado["ok"] is True
+    assert "Ya tienes un evento con ese nombre" in resultado["datos"]
+
+
+def test_recordatorio_se_confirma_antes_de_guardarse():
+    aplicacion, usuario = _entorno()
+    propuesta = aplicacion.router.procesar(
+        usuario.id,
+        uuid4(),
+        "recuérdame llamar a mamá mañana a las diez",
+    )
+
+    assert propuesta["ok"] is True
+    assert "Responde si para confirmar" in propuesta["datos"]
+
+    creado = aplicacion.router.procesar(usuario.id, uuid4(), "si")
+
+    assert creado["ok"] is True
+    assert creado["datos"]["mensaje"] == "llamar a mamá"
