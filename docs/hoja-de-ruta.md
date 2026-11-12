@@ -22,6 +22,12 @@ ideas de fechas, reglas deterministas y evaluación de frases se adaptan en
 fases separadas. Memoria/RAG, persistencia alternativa, avisos operativos,
 copias, sincronización y canales empresariales quedan descartados.
 
+## Lenguaje temporal
+
+Hecho: `app/domain/lenguaje_fechas.py` resuelve fechas hacia delante, acepta
+ayer y anteayer solo con `permitir_pasado=True`, y marca las horas sin franja
+como no acotadas para que el agente pueda pedir aclaración.
+
 ## Puntos a revisar (por confirmar si son fallos)
 1. `de_usuario` exige `usuario_id`; `Mensaje` y `RegistroHabito` no lo tienen.
 2. RESUELTO: `hay_conflicto` solo compara eventos del mismo usuario.

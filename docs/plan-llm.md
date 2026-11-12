@@ -15,6 +15,8 @@ escribe números ni fechas.
 7. La capa `llm` solo importa `llm`. Ampliar `REGLAS` en
    `tests/test_importaciones.py` y reflejarlo en `arquitectura.md`.
 8. El `usuario_id` lo pone el sistema, nunca el modelo.
+9. Las reglas temporales usan un parser puro con reloj/zona recibidos como
+   argumentos; un valor ambiguo se aclara en vez de completarse por intuición.
 
 ## Fases
 | # | Fase | Estado |

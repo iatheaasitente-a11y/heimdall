@@ -16,3 +16,4 @@
 | 12 | Conservar objetivos cerrados | Historial consultable; `restablecer()` es explícito |
 | 13 | Cerrar conversaciones y conservar sus mensajes | No se borran ni se editan los mensajes; el historial queda disponible |
 | 14 | Inyectar la fuente NBA detrás de una interfaz | Permite probar la herramienta sin credenciales ni API real |
+| 15 | Resolver expresiones temporales con referencia inyectada | Evita fechas basadas en reloj global y permite pedir aclaración ante ambigüedad |

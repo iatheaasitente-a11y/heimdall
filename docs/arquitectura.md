@@ -22,6 +22,8 @@ y conversaciones.
    herramientas que usan servicios.
 4. Los agentes no contienen lógica de negocio: delegan en servicios.
 5. Fechas siempre con zona horaria; se guardan en UTC.
+6. La interpretación de expresiones naturales de fecha recibe el instante de
+   referencia con zona; no consulta relojes ni zonas globales.
 
 ## Ejemplo: "¿qué tengo hoy?"
 1. El agente detecta la intención y llama a una herramienta.
@@ -68,6 +70,9 @@ limitan consultas por conversación y descartan respuestas de baja confianza.
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
 Solo si no hay una regla aplicable y se configura un motor consulta el LLM; el
 agente no contiene lógica de negocio.
+
+`app/domain/lenguaje_fechas.py` interpreta expresiones de fecha y hora con la
+zona del `datetime` inyectado. No depende de Pydantic ni de otras librerías.
 
 El módulo NBA solo define el contrato `FuenteNBA` y una implementación falsa
 para pruebas. La herramienta se registra únicamente cuando la composición
