@@ -11,7 +11,7 @@ valida con los esquemas, aplica las reglas del dominio y guarda con los reposito
 ## Servicios
 | Servicio | Casos de uso |
 |---|---|
-| `ServicioUsuarios` | registrar, obtener, cambiar zona horaria, desactivar |
+| `ServicioUsuarios` | registrar, obtener, cambiar zona horaria y preferencias, desactivar |
 | `ServicioAgenda` | crear, cancelar, completar y reprogramar eventos; eventos y celdas del día |
 | `ServicioRecordatorios` | programar avisos libres o de un evento, cancelar, marcar enviado, pendientes del día y vencidos |
 | `ServicioHabitos` | crear, listar y desactivar hábitos; registrar y borrar progreso; progreso del día y racha |

@@ -60,6 +60,25 @@ def test_cambiar_zona_horaria_se_guarda(entorno):
     assert repo.obtener(usuario.id).zona_horaria == "America/Mexico_City"
 
 
+def test_cambiar_preferencia_se_guarda(entorno):
+    servicio, repo = entorno
+    usuario = servicio.registrar("A")
+
+    servicio.cambiar_preferencia(usuario.id, "telegram_zona_confirmada", True)
+
+    assert repo.obtener(usuario.id).preferencias["telegram_zona_confirmada"] is True
+
+
+def test_cambiar_preferencia_rechaza_clave_vacia(entorno):
+    servicio, repo = entorno
+    usuario = servicio.registrar("A")
+
+    with pytest.raises(ValueError, match="clave"):
+        servicio.cambiar_preferencia(usuario.id, " ", True)
+
+    assert repo.obtener(usuario.id).preferencias == {}
+
+
 def test_cambiar_a_zona_invalida_no_modifica_lo_guardado(entorno):
     servicio, repo = entorno
     usuario = servicio.registrar("A")

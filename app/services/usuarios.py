@@ -60,6 +60,21 @@ class ServicioUsuarios:
         self._usuarios.guardar(usuario)
         return usuario
 
+    def cambiar_preferencia(self, usuario_id: UUID, clave: str, valor: object) -> Usuario:
+        """Guarda una preferencia del usuario.
+
+        Raises:
+            UsuarioNoEncontrado: Si el usuario no existe.
+            ValueError: Si la clave está vacía.
+        """
+        if not isinstance(clave, str) or not clave.strip():
+            raise ValueError("La clave de preferencia no puede estar vacía.")
+        usuario = self.obtener(usuario_id)
+        usuario.cambiar_preferencia(clave.strip(), valor)
+        UsuarioSchema.model_validate(usuario)
+        self._usuarios.guardar(usuario)
+        return usuario
+
     def desactivar(self, usuario_id: UUID) -> Usuario:
         """Marca al usuario como inactivo y guarda el cambio.
 

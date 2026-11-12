@@ -8,6 +8,8 @@
           -> Servicios (lógica de aplicación)
             -> Repositorios -> SQLite
           -> Fuente NBA (interfaz inyectada)
+    Telegram (adaptador de texto, identidad inyectada)
+      -> Router / conversaciones
 
     Dominio (app/domain) y Esquemas (app/schemas) los usan todas las capas.
 
@@ -46,12 +48,16 @@ sin ejecutar código. Cada fallo indica archivo y línea.
 | `llm` | solo `llm` | No |
 | `agents` | `domain.message`, `domain.lenguaje_fechas`, `llm`, `tools`, `agents` | Sí |
 | `chatbot` | `composicion`, `database`, `domain.message`, `llm.configuracion`, `llm.ollama` | No |
+| `telegram` | `agents.router`, `domain.message`, `domain.relations`, `services`, `telegram` | No |
 
 - `sqlite3` solo se usa en `database` y `repositories`.
 - Las implementaciones `sqlite_*` solo las importa `app/composicion.py`,
   que es el único archivo exento.
 - `app/chatbot.py` es el punto de entrada de terminal y tiene sus dependencias
   explícitas en `REGLAS` de `tests/test_importaciones.py`.
+- `app/telegram/` usa un mapeo inyectado de `chat_id` a `usuario_id`; solo su
+  configuración lee `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`. No crea usuarios,
+  no usa webhook y comparte el router y las conversaciones con el teclado.
 - Para permitir una dependencia nueva hay que ampliar `REGLAS` en el test y dejarlo escrito aquí.
 
 ## Herramientas
@@ -95,6 +101,13 @@ usan motores falsos y no requieren Ollama.
 La entrada de voz valida WAV PCM sin comprimir mediante `wave`, con límites
 de tamaño y duración. Incluye un transcriptor falso; `MotorOllamaVoz` permanece
 como esqueleto y no realiza llamadas de red.
+
+El conector de Telegram queda cerrado si no hay credencial y chats válidos.
+Solo procesa textos de chats permitidos con asociación inyectada a un usuario
+existente; antes de activarlo solicita y guarda la zona horaria IANA. El texto
+se conserva como mensaje de usuario y pasa al mismo router; las respuestas se
+dividen en fragmentos de hasta 4096 caracteres. Usa long polling `getUpdates`
+y transporte `urllib` inyectable; los errores no contienen la URL con token.
 
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
 Las reglas interpretan fechas con `app/domain/lenguaje_fechas.py`; si faltan

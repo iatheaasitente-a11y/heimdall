@@ -46,6 +46,13 @@ REGLAS = {
         "app.llm.configuracion",
         "app.llm.ollama",
     ),
+    "telegram": (
+        "app.agents.router",
+        "app.domain.message",
+        "app.domain.relations",
+        "app.services",
+        "app.telegram",
+    ),
 }
 
 CAPAS_CON_TERCEROS = {"schemas", "tools", "llm", "agents"}
@@ -157,6 +164,8 @@ PROHIBIDOS = [
     ("chatbot", "from app.services.agenda import ServicioAgenda\n"),
     ("chatbot", "from app.repositories.interfaces import RepositorioEventos\n"),
     ("chatbot", "from app.domain.nba.fuente import FuenteNBA\n"),
+    ("telegram", "from app.repositories.sqlite_usuarios import RepositorioUsuariosSQLite\n"),
+    ("telegram", "import sqlite3\n"),
     ("domain", "from .user import Usuario\n"),
     ("capa_inventada", "from app.domain.user import Usuario\n"),
 ]
@@ -181,6 +190,10 @@ PERMITIDOS = [
                 "from app.llm.ollama import MotorOllama\n"),
     ("chatbot", "from app.domain.message import RolMensaje\n"
                 "from app.database.connection import sesion_sqlite\n"),
+    ("telegram", "from app.agents.router import Router\n"
+                 "from app.domain.message import RolMensaje\n"
+                 "from app.services.conversaciones import ServicioConversaciones\n"
+                 "from app.telegram.configuracion import ConfiguracionTelegram\n"),
 ]
 
 
@@ -215,4 +228,6 @@ def test_composicion_puede_importar_las_implementaciones_sqlite(tmp_path):
 
 def test_un_archivo_suelto_en_app_necesita_regla(tmp_path):
     (tmp_path / "utilidades.py").write_text("X = 1\n", encoding="utf-8")
-    assert violaciones_del_proyecto(tmp_path) == ["app/utilidades.py: archivo suelto en app/ sin regla"]
+    assert violaciones_del_proyecto(tmp_path) == [
+        "app/utilidades.py: archivo suelto en app/ sin regla"
+    ]
