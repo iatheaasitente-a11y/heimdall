@@ -103,11 +103,15 @@ de tamaño y duración. Incluye un transcriptor falso; `MotorOllamaVoz` permanec
 como esqueleto y no realiza llamadas de red.
 
 El conector de Telegram queda cerrado si no hay credencial y chats válidos.
-Solo procesa textos de chats permitidos con asociación inyectada a un usuario
-existente; antes de activarlo solicita y guarda la zona horaria IANA. El texto
-se conserva como mensaje de usuario y pasa al mismo router; las respuestas se
-dividen en fragmentos de hasta 4096 caracteres. Usa long polling `getUpdates`
-y transporte `urllib` inyectable; los errores no contienen la URL con token.
+Solo procesa textos de chats privados permitidos con asociación inyectada a un
+usuario existente; antes de activarlo solicita y guarda la zona horaria IANA.
+El texto se conserva como mensaje de usuario y pasa al mismo router. Cada
+actualización se confirma antes de avanzar el offset; los fallos revierten el
+cambio, se registran sin detalles y continúan tras una pausa inyectada. Si no
+se puede revertir, el ciclo se detiene para no confirmar cambios parciales. Las
+respuestas se formatean sin JSON ni UUID internos y se dividen en fragmentos
+de hasta 4096 caracteres. Usa long polling `getUpdates` y transporte `urllib`
+inyectable; los errores no contienen la URL con token.
 
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
 Las reglas interpretan fechas con `app/domain/lenguaje_fechas.py`; si faltan

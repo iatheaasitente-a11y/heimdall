@@ -62,11 +62,28 @@ def entorno():
         conexion.close()
 
 
-def _actualizacion(chat_id=123, texto="hola"):
-    return {"message": {"chat": {"id": chat_id}, "text": texto}}
+def _actualizacion(chat_id=123, texto="hola", tipo_chat="private", from_id=None):
+    remitente_id = chat_id if from_id is None else from_id
+    return {
+        "message": {
+            "chat": {"id": chat_id, "type": tipo_chat},
+            "from": {"id": remitente_id},
+            "text": texto,
+        }
+    }
 
 
-def _conector(entorno, *, chat_ids=("123",), router=None, transporte=None, mapeo=None):
+def _conector(
+    entorno,
+    *,
+    chat_ids=("123",),
+    router=None,
+    transporte=None,
+    mapeo=None,
+    confirmar=None,
+    revertir=None,
+    pausar_error=None,
+):
     _, usuarios, conversaciones, usuario = entorno
     return ConectorTelegram(
         ConfiguracionTelegram("credencial-prueba", frozenset(chat_ids)),
@@ -74,7 +91,10 @@ def _conector(entorno, *, chat_ids=("123",), router=None, transporte=None, mapeo
         usuarios,
         conversaciones,
         RouterFalso() if router is None else router,
-        TransporteFalso() if transporte is None else transporte,
+        confirmar=(lambda: None) if confirmar is None else confirmar,
+        revertir=(lambda: None) if revertir is None else revertir,
+        pausar_error=(lambda: None) if pausar_error is None else pausar_error,
+        transporte=TransporteFalso() if transporte is None else transporte,
     )
 
 
@@ -134,7 +154,7 @@ def test_sin_mapeo_no_consulta_telegram(entorno):
     assert transporte.solicitudes == []
 
 
-def test_get_updates_hace_long_poll_y_avanza_offset(entorno):
+def test_get_updates_hace_long_poll_sin_avanzar_offset_antes_de_procesar(entorno):
     respuestas = [
         b'{"ok":true,"result":[{"update_id":8},{"update_id":9}]}',
         b'{"ok":true,"result":[]}',
@@ -152,7 +172,7 @@ def test_get_updates_hace_long_poll_y_avanza_offset(entorno):
         "timeout": 10,
         "allowed_updates": ["message"],
     }
-    assert json.loads(segunda.data)["offset"] == 10
+    assert "offset" not in json.loads(segunda.data)
     assert all(timeout == 15 for _, timeout in transporte.solicitudes)
 
 
@@ -282,7 +302,10 @@ def test_mapeo_acepta_uuid_explicito_en_texto(entorno):
         usuarios,
         conversaciones,
         RouterFalso(),
-        TransporteFalso(),
+        confirmar=lambda: None,
+        revertir=lambda: None,
+        pausar_error=lambda: None,
+        transporte=TransporteFalso(),
     )
 
     conector.procesar_actualizacion(_actualizacion(), 15)
@@ -303,7 +326,172 @@ def test_respuesta_mayor_de_4096_caracteres_se_fragmenta(entorno):
     ]
     assert len(fragmentos) == 2
     assert all(len(fragmento) <= 4096 for fragmento in fragmentos)
-    assert "".join(fragmentos) == json.dumps(router.salida, ensure_ascii=False)
+    assert "".join(fragmentos) == "Texto: " + "x" * 5000
+
+
+def test_formateador_no_expone_json_ni_uuid_de_candidatos(entorno):
+    _, usuarios, _, usuario = entorno
+    usuarios.cambiar_preferencia(usuario.id, "telegram_zona_confirmada", True)
+    identificador = "de305d54-75b4-431b-adb2-eb6b9e546014"
+    router = RouterFalso(
+        {
+            "ok": False,
+            "error": f"Hay varios eventos; referencia {identificador}.",
+            "candidatos": [{"id": identificador, "nombre": "Reunión"}],
+        }
+    )
+    transporte = TransporteFalso()
+    _conector(entorno, router=router, transporte=transporte).procesar_actualizacion(
+        _actualizacion(),
+        15,
+    )
+
+    texto = json.loads(transporte.solicitudes[-1][0].data)["text"]
+    assert identificador not in texto
+    assert '{"' not in texto
+    assert "Opciones: Reunión." in texto
+
+
+def test_rechaza_chats_que_no_son_privados(entorno):
+    _, _, conversaciones, usuario = entorno
+    transporte = TransporteFalso()
+    router = RouterFalso()
+
+    _conector(entorno, router=router, transporte=transporte).procesar_actualizacion(
+        _actualizacion(tipo_chat="group"),
+        15,
+    )
+
+    assert router.llamadas == []
+    assert transporte.solicitudes == []
+    assert conversaciones.listar_conversaciones(usuario.id) == []
+
+
+def test_ejecutar_confirma_cada_actualizacion_y_avanza_offset(entorno):
+    respuestas = [
+        json.dumps(
+            {"ok": True, "result": [{"update_id": 8}, {"update_id": 9}]}
+        ).encode(),
+        b'{"ok":true,"result":[]}',
+    ]
+    transporte = TransporteFalso(respuestas)
+    confirmaciones = []
+    procesadas = []
+    conector = _conector(
+        entorno,
+        transporte=transporte,
+        confirmar=lambda: confirmaciones.append(len(procesadas)),
+    )
+    conector.procesar_actualizacion = (
+        lambda actualizacion, _timeout: procesadas.append(
+            actualizacion["update_id"]
+        )
+    )
+    paradas = iter([False, False, True])
+
+    conector.ejecutar(10, 15, lambda: next(paradas))
+
+    assert procesadas == [8, 9]
+    assert confirmaciones == [1, 2]
+    assert json.loads(transporte.solicitudes[1][0].data)["offset"] == 10
+
+
+def test_ejecutar_reintenta_fallo_sin_saltar_offset_ni_exponer_detalles(
+    entorno,
+    caplog,
+):
+    lote = {"ok": True, "result": [{"update_id": 8}, {"update_id": 9}]}
+    transporte = TransporteFalso(
+        [
+            json.dumps(lote).encode(),
+            json.dumps(lote).encode(),
+            b'{"ok":true,"result":[]}',
+        ]
+    )
+    confirmaciones = []
+    reversiones = []
+    pausas = []
+    intentos = []
+    fallar_primero = True
+    conector = _conector(
+        entorno,
+        transporte=transporte,
+        confirmar=lambda: confirmaciones.append(True),
+        revertir=lambda: reversiones.append(True),
+        pausar_error=lambda: pausas.append(True),
+    )
+
+    def procesar(actualizacion, _timeout):
+        nonlocal fallar_primero
+        update_id = actualizacion["update_id"]
+        intentos.append(update_id)
+        if update_id == 8 and fallar_primero:
+            fallar_primero = False
+            raise OSError("credencial-prueba")
+
+    conector.procesar_actualizacion = procesar
+    paradas = iter([False, False, False, True])
+
+    with caplog.at_level(logging.ERROR):
+        conector.ejecutar(10, 15, lambda: next(paradas))
+
+    assert intentos == [8, 8, 9]
+    assert confirmaciones == [True, True]
+    assert reversiones == [True]
+    assert pausas == [True]
+    assert "OSError" in caplog.text
+    assert "credencial-prueba" not in caplog.text
+    assert "offset" not in json.loads(transporte.solicitudes[1][0].data)
+    assert json.loads(transporte.solicitudes[2][0].data)["offset"] == 10
+
+
+def test_ejecutar_reintenta_fallos_de_consulta_sin_detalles_sensibles(
+    entorno,
+    caplog,
+):
+    transporte = TransporteFalso(error="credencial-prueba")
+    pausas = []
+    conector = _conector(
+        entorno,
+        transporte=transporte,
+        pausar_error=lambda: pausas.append(True),
+    )
+    paradas = iter([False, False, True])
+
+    with caplog.at_level(logging.ERROR):
+        conector.ejecutar(10, 15, lambda: next(paradas))
+
+    assert pausas == [True, True]
+    assert "credencial-prueba" not in caplog.text
+    assert "ErrorTelegram" in caplog.text
+    assert len(transporte.solicitudes) == 2
+
+
+def test_ejecutar_falla_cerrado_si_no_puede_revertir(entorno, caplog):
+    transporte = TransporteFalso(
+        [b'{"ok":true,"result":[{"update_id":8}]}']
+    )
+
+    def fallar_reversion():
+        raise OSError("credencial-prueba")
+
+    def fallar_procesamiento(*_argumentos):
+        raise OSError("fallo de procesamiento")
+
+    conector = _conector(
+        entorno,
+        transporte=transporte,
+        revertir=fallar_reversion,
+    )
+    conector.procesar_actualizacion = fallar_procesamiento
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(ErrorTelegram) as error:
+            conector.ejecutar(10, 15, lambda: False)
+
+    assert "revertir" in str(error.value)
+    assert "credencial-prueba" not in str(error.value)
+    assert "credencial-prueba" not in caplog.text
 
 
 def test_mapeo_rechaza_uuid_en_formato_invalido(entorno):
@@ -315,6 +503,9 @@ def test_mapeo_rechaza_uuid_en_formato_invalido(entorno):
             usuarios,
             conversaciones,
             RouterFalso(),
+            confirmar=lambda: None,
+            revertir=lambda: None,
+            pausar_error=lambda: None,
         )
 
 
@@ -327,4 +518,7 @@ def test_mapeo_rechaza_id_de_chat_invalido(entorno):
             usuarios,
             conversaciones,
             RouterFalso(),
+            confirmar=lambda: None,
+            revertir=lambda: None,
+            pausar_error=lambda: None,
         )

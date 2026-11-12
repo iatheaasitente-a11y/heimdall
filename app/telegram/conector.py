@@ -3,6 +3,7 @@
 import json
 import logging
 import math
+import re
 from collections.abc import Callable, Mapping
 from typing import Protocol
 from urllib.request import Request, urlopen
@@ -21,6 +22,10 @@ _MAX_CARACTERES = 4096
 _PREFERENCIA_ZONA_CONFIRMADA = "telegram_zona_confirmada"
 _METADATO_PENDIENTE_ZONA = "telegram_solicitud_pendiente_zona"
 _METADATO_CONFIGURACION = "telegram_configuracion"
+_UUID_TEXTO = re.compile(
+    r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",
+    re.IGNORECASE,
+)
 Transporte = Callable[[Request, float], bytes]
 
 
@@ -44,9 +49,13 @@ class ConectorTelegram:
         usuarios: ServicioUsuarios,
         conversaciones: ServicioConversaciones,
         router: Router,
+        *,
+        confirmar: Callable[[], None],
+        revertir: Callable[[], None],
+        pausar_error: Callable[[], None],
         transporte: Transporte | None = None,
     ) -> None:
-        """Inyecta configuración, mapeo de identidad, servicios y transporte.
+        """Inyecta configuración, servicios y ciclo transaccional por actualización.
 
         Raises:
             ValueError: Si el mapeo contiene un ID de chat o UUID inválido.
@@ -68,6 +77,9 @@ class ConectorTelegram:
         self._usuarios = usuarios
         self._conversaciones = conversaciones
         self._router = router
+        self._confirmar = confirmar
+        self._revertir = revertir
+        self._pausar_error = pausar_error
         self._transporte = _transporte_urllib if transporte is None else transporte
         self._offset: int | None = None
         self._habilitado = bool(
@@ -108,7 +120,6 @@ class ConectorTelegram:
             update_id = actualizacion.get("update_id")
             if isinstance(update_id, bool) or not isinstance(update_id, int):
                 raise ErrorTelegram("Telegram devolvió una actualización inválida.")
-            self._offset = max(self._offset or 0, update_id + 1)
             actualizaciones.append(actualizacion)
         return actualizaciones
 
@@ -132,7 +143,7 @@ class ConectorTelegram:
         if not isinstance(mensaje, dict):
             return
         chat = mensaje.get("chat")
-        if not isinstance(chat, dict):
+        if not isinstance(chat, dict) or chat.get("type") != "private":
             return
         chat_id = _id_desde_actualizacion(chat.get("id"))
         if (
@@ -173,10 +184,50 @@ class ConectorTelegram:
         timeout_http: float,
         detener: Parada,
     ) -> None:
-        """Mantiene el long polling hasta que ``detener`` devuelve ``True``."""
+        """Procesa actualizaciones aisladas hasta que ``detener`` devuelve ``True``.
+
+        Cada actualización exitosa se confirma antes de avanzar el offset. Ante
+        un fallo se revierte, se registra solo el tipo de error y se pausa.
+
+        Raises:
+            ValueError: Si los límites de espera no son válidos.
+        """
+        if not self._habilitado:
+            return
+        _validar_esperas(espera, timeout_http)
         while self._habilitado and not detener():
-            for actualizacion in self.obtener_actualizaciones(espera, timeout_http):
-                self.procesar_actualizacion(actualizacion, timeout_http)
+            try:
+                actualizaciones = self.obtener_actualizaciones(espera, timeout_http)
+            except Exception as error:
+                self._registrar_error("consulta", error)
+                self._pausar_error()
+                continue
+            for actualizacion in actualizaciones:
+                try:
+                    update_id = _validar_update_id(actualizacion)
+                    self.procesar_actualizacion(actualizacion, timeout_http)
+                    self._confirmar()
+                except Exception as error:
+                    try:
+                        self._revertir()
+                    except Exception as error_reversion:
+                        self._registrar_error("reversión", error_reversion)
+                        raise ErrorTelegram(
+                            "No se pudo revertir la actualización de Telegram."
+                        ) from None
+                    self._registrar_error("actualización", error)
+                    self._pausar_error()
+                    break
+                self._offset = max(self._offset or 0, update_id + 1)
+
+    @staticmethod
+    def _registrar_error(etapa: str, error: Exception) -> None:
+        """Registra solo la etapa y el tipo, nunca mensajes potencialmente sensibles."""
+        _LOG.error(
+            "Error de Telegram durante %s (%s).",
+            etapa,
+            type(error).__name__,
+        )
 
     def _confirmar_zona_y_procesar(
         self,
@@ -305,7 +356,11 @@ class ConectorTelegram:
             contenido,
             {"resultado": salida},
         )
-        self._enviar_texto(chat_id, contenido, timeout_http)
+        self._enviar_texto(
+            chat_id,
+            formatear_respuesta(salida),
+            timeout_http,
+        )
 
     def _responder(
         self,
@@ -374,6 +429,73 @@ def _id_desde_actualizacion(valor: object) -> str | None:
     if isinstance(valor, bool) or not isinstance(valor, int) or valor == 0:
         return None
     return str(valor)
+
+
+def formatear_respuesta(salida: Mapping[str, object]) -> str:
+    """Convierte una salida interna a texto y omite identificadores UUID.
+
+    Las respuestas no exitosas incluyen los nombres de candidatos, nunca sus
+    UUID. Los identificadores que aparezcan en textos se redactan.
+    """
+    if salida.get("ok") is True:
+        texto = _formatear_valor(salida.get("datos"))
+        return texto or "Solicitud completada."
+    error = salida.get("error")
+    texto = _redactar_uuid(error) if isinstance(error, str) else (
+        "No he podido interpretar la solicitud."
+    )
+    candidatos = salida.get("candidatos")
+    nombres = [
+        _redactar_uuid(candidato["nombre"])
+        for candidato in candidatos
+        if isinstance(candidato, Mapping)
+        and isinstance(candidato.get("nombre"), str)
+        and candidato["nombre"].strip()
+    ] if isinstance(candidatos, list) else []
+    if nombres:
+        texto = f"{texto} Opciones: {', '.join(nombres)}."
+    return texto
+
+
+def _formatear_valor(valor: object) -> str:
+    """Aplana datos de respuesta en texto sin incluir campos identificadores."""
+    if isinstance(valor, Mapping):
+        partes = []
+        for clave, dato in valor.items():
+            if not isinstance(clave, str):
+                continue
+            clave_normalizada = clave.casefold()
+            if clave_normalizada == "id" or clave_normalizada.endswith("_id"):
+                continue
+            contenido = _formatear_valor(dato)
+            if contenido:
+                etiqueta = clave.replace("_", " ").capitalize()
+                partes.append(f"{etiqueta}: {contenido}")
+        return "; ".join(partes)
+    if isinstance(valor, list):
+        return "; ".join(
+            contenido
+            for elemento in valor
+            if (contenido := _formatear_valor(elemento))
+        )
+    if isinstance(valor, bool):
+        return "sí" if valor else "no"
+    if isinstance(valor, (str, int, float)):
+        return _redactar_uuid(str(valor))
+    return ""
+
+
+def _redactar_uuid(texto: str) -> str:
+    """Sustituye UUID por una etiqueta no identificadora."""
+    return _UUID_TEXTO.sub("[identificador]", texto)
+
+
+def _validar_update_id(actualizacion: Mapping[str, object]) -> int:
+    """Obtiene el ID de una actualización antes de procesarla."""
+    update_id = actualizacion.get("update_id")
+    if isinstance(update_id, bool) or not isinstance(update_id, int):
+        raise ErrorTelegram("Telegram devolvió una actualización inválida.")
+    return update_id
 
 
 def _validar_esperas(espera: int, timeout_http: float) -> None:
