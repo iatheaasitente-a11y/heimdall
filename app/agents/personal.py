@@ -63,7 +63,7 @@ class AgentePersonal(AgenteBase):
         if esperando is not None:
             historial_motor.insert(
                 0,
-                {"role": "system", "content": f"esperando: {esperando}"},
+                {"role": "assistant", "content": f"esperando: {esperando}"},
             )
         definiciones = [
             _definicion(herramienta) for herramienta in self._herramientas.listar()

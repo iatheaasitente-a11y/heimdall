@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
@@ -161,6 +162,45 @@ def test_valor_error_del_servicio_se_devuelve_como_error_json():
         "ok": False,
         "error": "Valor inválido.",
     }
+
+
+@pytest.mark.parametrize(
+    "error",
+    [sqlite3.OperationalError, OSError, TypeError],
+)
+def test_fallos_inesperados_de_herramienta_se_registran_y_devuelven_error(
+    error,
+    caplog,
+):
+    def fallar(usuario_id, argumentos):
+        del usuario_id, argumentos
+        raise error("detalle interno")
+
+    item = Herramienta("fallo", "Falla de forma inesperada.", Parametros, fallar)
+
+    resultado = item.ejecutar(uuid4(), {})
+
+    assert resultado == {
+        "ok": False,
+        "error": "No se pudo completar la herramienta por un error interno.",
+    }
+    assert "Fallo inesperado al ejecutar la herramienta fallo." in caplog.text
+    assert "detalle interno" in caplog.text
+
+
+def test_error_al_serializar_herramienta_se_registra_y_devuelve_error(caplog):
+    item = Herramienta(
+        "fallo_serializacion",
+        "Devuelve un objeto no serializable.",
+        Parametros,
+        lambda _usuario_id, _argumentos: object(),
+    )
+
+    resultado = item.ejecutar(uuid4(), {})
+
+    assert resultado["ok"] is False
+    assert "error interno" in resultado["error"]
+    assert "Fallo inesperado al ejecutar la herramienta" in caplog.text
 
 
 def test_nombre_en_blanco_se_devuelve_como_error_json(entorno):

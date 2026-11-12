@@ -1,5 +1,7 @@
 """Contrato y ejecución segura de las herramientas disponibles para el agente."""
 
+import logging
+import sqlite3
 from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
 from datetime import date, datetime
@@ -13,6 +15,7 @@ from app.services.errores import ErrorDeServicio
 from app.tools.errores import ErrorResolucionNombre
 
 Ejecutor = Callable[[UUID, dict[str, Any]], object]
+_REGISTRO = logging.getLogger(__name__)
 
 
 class Herramienta:
@@ -42,12 +45,22 @@ class Herramienta:
         try:
             parametros = self.parametros.model_validate(dict(argumentos))
             datos = self._ejecutar(usuario_id, parametros.model_dump())
+            serializados = _a_json(datos)
         except (ErrorDeServicio, ValueError) as error:
             resultado: dict[str, object] = {"ok": False, "error": str(error)}
             if isinstance(error, ErrorResolucionNombre):
                 resultado["candidatos"] = error.candidatos
             return resultado
-        return {"ok": True, "datos": _a_json(datos)}
+        except (sqlite3.Error, OSError, TypeError):
+            _REGISTRO.exception(
+                "Fallo inesperado al ejecutar la herramienta %s.",
+                self.nombre,
+            )
+            return {
+                "ok": False,
+                "error": "No se pudo completar la herramienta por un error interno.",
+            }
+        return {"ok": True, "datos": serializados}
 
 
 def _a_json(valor: object) -> object:

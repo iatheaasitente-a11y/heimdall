@@ -2,6 +2,8 @@
 
 import argparse
 import json
+import logging
+import sqlite3
 import sys
 from datetime import UTC, datetime
 from uuid import UUID
@@ -12,6 +14,8 @@ from app.database.init_db import inicializar_base_datos
 from app.domain.message import RolMensaje
 from app.llm.configuracion import crear_motor
 from app.llm.ollama import MotorOllama
+
+_REGISTRO = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -76,30 +80,48 @@ def main() -> None:
                 RolMensaje.USUARIO,
                 texto,
             )
-            historial = aplicacion.conversaciones.historial_para_modelo(
-                usuario_id,
-                conversacion.id,
-            )
-            resultado = aplicacion.router.procesar(
-                usuario_id,
-                conversacion.id,
-                texto,
-                historial,
-            )
-            salida = resultado or {
-                "ok": False,
-                "error": "No he podido interpretar la solicitud.",
-            }
-            respuesta = json.dumps(salida, ensure_ascii=False)
-            print(respuesta)
-            aplicacion.conversaciones.agregar_mensaje(
-                usuario_id,
-                conversacion.id,
-                RolMensaje.ASISTENTE,
-                respuesta,
-                {"resultado": salida},
-            )
             conexion.commit()
+            try:
+                historial = aplicacion.conversaciones.historial_para_modelo(
+                    usuario_id,
+                    conversacion.id,
+                )
+                resultado = aplicacion.router.procesar(
+                    usuario_id,
+                    conversacion.id,
+                    texto,
+                    historial,
+                )
+                salida = resultado or {
+                    "ok": False,
+                    "error": "No he podido interpretar la solicitud.",
+                }
+                respuesta = json.dumps(salida, ensure_ascii=False)
+            except (sqlite3.Error, OSError, TypeError):
+                _REGISTRO.exception("Fallo inesperado al procesar un turno.")
+                salida = {
+                    "ok": False,
+                    "error": "No se pudo completar la solicitud por un error interno.",
+                }
+                respuesta = json.dumps(salida, ensure_ascii=False)
+            print(respuesta)
+            try:
+                aplicacion.conversaciones.agregar_mensaje(
+                    usuario_id,
+                    conversacion.id,
+                    RolMensaje.ASISTENTE,
+                    respuesta,
+                    {"resultado": salida},
+                )
+                conexion.commit()
+            except (sqlite3.Error, OSError, TypeError):
+                _REGISTRO.exception("No se pudo guardar la respuesta del turno.")
+                print(
+                    "Aviso: el mensaje del usuario quedó guardado, "
+                    "pero no se pudo guardar la respuesta.",
+                    file=sys.stderr,
+                )
+                break
 
 
 if __name__ == "__main__":

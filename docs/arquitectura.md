@@ -62,10 +62,18 @@ forma parte de los argumentos del modelo. Las herramientas delegan en servicios
 y convierten sus resultados a JSON; los textos se limitan a 500 caracteres y
 los valores numéricos rechazan NaN e infinito. Los `ErrorDeServicio` se devuelven
 como errores estructurados. Las operaciones internas de recordatorios no se exponen.
+Los fallos inesperados de SQLite, E/S o serialización se registran y devuelven
+un error genérico, sin exponer detalles internos.
 Los selectores de hábito, objetivo, evento y recordatorio aceptan UUID o nombre
 exacto sin distinguir mayúsculas ni tildes; la búsqueda se limita al usuario.
 Una selección ausente o ambigua devuelve candidatos, y hay herramientas para
 listar hábitos y recordatorios.
+
+El chatbot confirma el mensaje del usuario antes de ejecutar el agente. Si falla
+el procesamiento, conserva ese turno y guarda una respuesta de error cuando la
+base sigue disponible.
+`sqlite3` permanece reservado al acceso a datos; `tools` y `chatbot` solo pueden
+importarlo para traducir sus excepciones, no para ejecutar consultas SQL.
 
 La capa `app/llm` devuelve únicamente intención, campos y confianza. El catálogo
 inyectado asigna modelos explícitos a TEXTO, ENRUTADOR, VISION, OCR y VOZ; sin
@@ -87,7 +95,7 @@ Los frenos limitan consultas por conversación y tratan la confianza ausente,
 ilegible o fuera de rango como baja. Antes de ejecutar, el agente comprueba que
 la herramienta y sus argumentos pertenecen al catálogo; al motor solo pasa los
 últimos cuatro turnos y, si hay una aclaración pendiente, la pregunta bajo
-`esperando`.
+`esperando` en un mensaje de rol no privilegiado.
 
 Los motores de VISION y OCR aceptan rutas locales a imágenes JPEG o PNG.
 `app/llm/vision.py` aplica los límites de tamaño y dimensiones aprobados,

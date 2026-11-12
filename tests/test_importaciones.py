@@ -3,8 +3,9 @@
 Analiza el código con ``ast`` sin importarlo, así que no ejecuta nada del
 proyecto. Cada capa solo puede importar lo que indica ``REGLAS``; las capas
 sin dependencias externas (``domain``, ``database``, ``repositories`` y
-``services``) solo admiten la biblioteca estándar, y ``sqlite3`` queda
-reservado a ``database`` y ``repositories``.
+``services``) solo admiten la biblioteca estándar. ``sqlite3`` queda reservado
+a ``database`` y ``repositories``, salvo la traducción de errores en ``tools``
+y ``chatbot``; esas capas no ejecutan SQL.
 
 Para permitir una dependencia nueva, amplía ``REGLAS`` aquí y deja constancia
 en ``docs/arquitectura.md``.
@@ -49,7 +50,7 @@ REGLAS = {
 }
 
 CAPAS_CON_TERCEROS = {"schemas", "tools", "llm", "agents"}
-CAPAS_CON_SQLITE3 = {"database", "repositories"}
+CAPAS_CON_SQLITE3 = {"database", "repositories", "tools", "chatbot"}
 ARCHIVOS_EXENTOS = {"composicion.py"}
 ARCHIVOS_LIBRES = {"__init__.py"}
 PREFIJO_SQLITE = "app.repositories.sqlite_"
@@ -177,6 +178,11 @@ PERMITIDOS = [
                "from app.tools.base import Herramienta\n"),
     ("llm", "import json\nfrom pydantic import BaseModel\n"),
     ("database", "import sqlite3\nfrom app.database.fechas import a_texto\n"),
+    ("tools", "import sqlite3\nfrom app.services.errores import ErrorDeServicio\n"),
+    (
+        "chatbot",
+        "import sqlite3\nfrom app.database.connection import sesion_sqlite\n",
+    ),
     ("chatbot", "from app.composicion import crear_composicion\n"
                 "from app.llm.ollama import MotorOllama\n"),
     ("chatbot", "from app.domain.message import RolMensaje\n"

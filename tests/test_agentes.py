@@ -231,7 +231,7 @@ def test_agente_pasa_la_pregunta_pendiente_y_los_ultimos_cuatro_turnos():
 
     assert resultado["ok"] is True
     assert motor.ultimo_historial[0] == {
-        "role": "system",
+        "role": "assistant",
         "content": "esperando: ¿Qué día quieres?",
     }
     assert [
