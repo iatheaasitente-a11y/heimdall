@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, model_validator
 
-from app.domain.schedule import EstadoEvento, Evento
+from app.domain.schedule import EstadoEvento, Evento, Repeticion
 from app.schemas.comunes import TextoNoVacio
 
 
@@ -25,6 +25,7 @@ class EventoSchema(BaseModel):
     ubicacion: str | None = None
     estado: EstadoEvento = EstadoEvento.PROGRAMADO
     todo_el_dia: bool = False
+    repeticion: Repeticion | None = None
 
     @model_validator(mode="after")
     def termina_despues_de_empezar(self):
