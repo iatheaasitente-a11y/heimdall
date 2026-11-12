@@ -30,6 +30,7 @@ class Evento:
         descripcion: Detalles opcionales.
         ubicacion: Lugar opcional.
         estado: Estado actual; por defecto ``PROGRAMADO``.
+        todo_el_dia: Si es ``True``, el evento ocupa el día completo.
     """
 
     usuario_id: UUID
@@ -40,6 +41,7 @@ class Evento:
     descripcion: str | None = None
     ubicacion: str | None = None
     estado: EstadoEvento = EstadoEvento.PROGRAMADO
+    todo_el_dia: bool = False
 
     def __post_init__(self) -> None:
         """Valida el evento al crearlo.
