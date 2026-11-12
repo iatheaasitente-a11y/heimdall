@@ -28,6 +28,12 @@ internas `marcar_enviado` ni `vencidos` de recordatorios. La consulta NBA se
 registra solo si se inyecta una `FuenteNBA`; por ahora, la fuente disponible es
 falsa y no consulta APIs reales.
 
+Las herramientas que operan sobre un hábito, objetivo, evento o recordatorio
+aceptan su UUID o su nombre/título. La búsqueda es exacta e ignora mayúsculas,
+tildes y espacios exteriores; solo consulta datos del usuario actual. Si no
+hay una coincidencia única, devuelve un error con `candidatos` para aclarar la
+selección. También se ofrecen herramientas para listar hábitos y recordatorios.
+
 ## Coherencia entre agenda y recordatorios
 Si `ServicioAgenda` recibe el repositorio de recordatorios:
 - Al cancelar o completar un evento se cancelan sus avisos pendientes.
@@ -81,6 +87,7 @@ Las operaciones sobre objetivos siguen la misma regla y usan
 | `FechaLimiteEnElPasado` | La fecha límite indicada es anterior al día actual del usuario |
 | `ConversacionNoEncontrada` | La conversación no existe o es de otro usuario |
 | `ConversacionCerrada` | La conversación está cerrada y no admite cambios |
+| `ErrorResolucionNombre` | El nombre no identifica una entidad única; se ofrecen candidatos |
 
 Los datos mal formados (nombre vacío, zona inexistente, fechas sin zona) siguen
 lanzando `pydantic.ValidationError` o `ValueError`.

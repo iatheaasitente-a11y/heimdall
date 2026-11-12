@@ -3,7 +3,7 @@
 from datetime import date
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from app.domain.goal import EstadoObjetivo
 from app.domain.habit import FrecuenciaHabito
@@ -26,9 +26,16 @@ class CrearEvento(Parametros):
 
 
 class IdentificadorEvento(Parametros):
-    """Identificador de un evento."""
+    """Identificador UUID o título de un evento."""
 
-    evento_id: UUID
+    evento_id: UUID | None = None
+    titulo: str | None = None
+
+    @model_validator(mode="after")
+    def exigir_un_selector(self) -> "IdentificadorEvento":
+        """Exige un UUID o un título, pero no ambos."""
+        _validar_selector(self.evento_id, self.titulo)
+        return self
 
 
 class ReprogramarEvento(IdentificadorEvento):
@@ -55,19 +62,33 @@ class CrearHabito(Parametros):
 
 
 class RegistrarProgresoHabito(Parametros):
-    """Parámetros para registrar progreso de un hábito."""
+    """Parámetros para registrar progreso por UUID o nombre de hábito."""
 
-    habito_id: UUID
+    habito_id: UUID | None = None
+    nombre: str | None = None
     valor: float = Field(ge=0)
     cuando: AwareDatetime | None = None
     notas: str | None = None
 
+    @model_validator(mode="after")
+    def exigir_un_selector(self) -> "RegistrarProgresoHabito":
+        """Exige un UUID o un nombre, pero no ambos."""
+        _validar_selector(self.habito_id, self.nombre)
+        return self
+
 
 class ConsultarHabito(Parametros):
-    """Parámetros para consultar un hábito y su fecha."""
+    """Parámetros para consultar un hábito por UUID o nombre."""
 
-    habito_id: UUID
+    habito_id: UUID | None = None
+    nombre: str | None = None
     dia: date | None = None
+
+    @model_validator(mode="after")
+    def exigir_un_selector(self) -> "ConsultarHabito":
+        """Exige un UUID o un nombre, pero no ambos."""
+        _validar_selector(self.habito_id, self.nombre)
+        return self
 
 
 class CrearObjetivo(Parametros):
@@ -79,16 +100,30 @@ class CrearObjetivo(Parametros):
 
 
 class ActualizarProgresoObjetivo(Parametros):
-    """Parámetros para actualizar el progreso de un objetivo."""
+    """Parámetros para actualizar progreso por UUID o nombre de objetivo."""
 
-    objetivo_id: UUID
+    objetivo_id: UUID | None = None
+    nombre: str | None = None
     progreso: float = Field(ge=0, le=100)
+
+    @model_validator(mode="after")
+    def exigir_un_selector(self) -> "ActualizarProgresoObjetivo":
+        """Exige un UUID o un nombre, pero no ambos."""
+        _validar_selector(self.objetivo_id, self.nombre)
+        return self
 
 
 class CambiarEstadoObjetivo(Parametros):
-    """Identificador del objetivo que cambia de estado."""
+    """Identificador UUID o nombre del objetivo que cambia de estado."""
 
-    objetivo_id: UUID
+    objetivo_id: UUID | None = None
+    nombre: str | None = None
+
+    @model_validator(mode="after")
+    def exigir_un_selector(self) -> "CambiarEstadoObjetivo":
+        """Exige un UUID o un nombre, pero no ambos."""
+        _validar_selector(self.objetivo_id, self.nombre)
+        return self
 
 
 class ListarObjetivos(Parametros):
@@ -105,9 +140,26 @@ class ProgramarRecordatorio(Parametros):
 
 
 class IdentificadorRecordatorio(Parametros):
-    """Identificador de un recordatorio."""
+    """Identificador UUID o texto de un recordatorio."""
 
-    recordatorio_id: UUID
+    recordatorio_id: UUID | None = None
+    mensaje: str | None = None
+
+    @model_validator(mode="after")
+    def exigir_un_selector(self) -> "IdentificadorRecordatorio":
+        """Exige un UUID o un mensaje, pero no ambos."""
+        _validar_selector(self.recordatorio_id, self.mensaje)
+        return self
+
+
+class ListarHabitos(Parametros):
+    """Filtro opcional para listar hábitos."""
+
+    solo_activos: bool = False
+
+
+class ListarRecordatorios(Parametros):
+    """Consulta para listar recordatorios del usuario."""
 
 
 class ResumenDia(Parametros):
@@ -120,3 +172,11 @@ class ConsultaNBA(Parametros):
     """Consulta de texto libre para la fuente NBA."""
 
     consulta: str = Field(min_length=1)
+
+
+def _validar_selector(identificador: UUID | None, nombre: str | None) -> None:
+    """Exige exactamente uno de los selectores de una entidad."""
+    if (identificador is None) == (nombre is None):
+        raise ValueError("Indica un identificador o un nombre, pero no ambos.")
+    if nombre is not None and not nombre.strip():
+        raise ValueError("El nombre no puede estar vacío.")

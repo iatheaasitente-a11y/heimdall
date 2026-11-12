@@ -61,6 +61,10 @@ esquema JSON. El `usuario_id` se pasa por separado desde el sistema y nunca
 forma parte de los argumentos del modelo. Las herramientas delegan en servicios
 y convierten sus resultados a JSON; los `ErrorDeServicio` se devuelven como
 errores estructurados. Las operaciones internas de recordatorios no se exponen.
+Los selectores de hábito, objetivo, evento y recordatorio aceptan UUID o nombre
+exacto sin distinguir mayúsculas ni tildes; la búsqueda se limita al usuario.
+Una selección ausente o ambigua devuelve candidatos, y hay herramientas para
+listar hábitos y recordatorios.
 
 La capa `app/llm` devuelve únicamente intención, campos y confianza. Está
 apagada por defecto; Ollama usa `urllib` con timeout y sin reintentos, mientras

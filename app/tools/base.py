@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.services.errores import ErrorDeServicio
+from app.tools.errores import ErrorResolucionNombre
 
 Ejecutor = Callable[[UUID, dict[str, Any]], object]
 
@@ -42,7 +43,10 @@ class Herramienta:
             parametros = self.parametros.model_validate(dict(argumentos))
             datos = self._ejecutar(usuario_id, parametros.model_dump())
         except (ErrorDeServicio, ValueError) as error:
-            return {"ok": False, "error": str(error)}
+            resultado: dict[str, object] = {"ok": False, "error": str(error)}
+            if isinstance(error, ErrorResolucionNombre):
+                resultado["candidatos"] = error.candidatos
+            return resultado
         return {"ok": True, "datos": _a_json(datos)}
 
 

@@ -28,6 +28,13 @@ Hecho: `app/domain/lenguaje_fechas.py` resuelve fechas hacia delante, acepta
 ayer y anteayer solo con `permitir_pasado=True`, y marca las horas sin franja
 como no acotadas para que el agente pueda pedir aclaración.
 
+## Herramientas por nombre
+
+Hecho: hábitos, objetivos, eventos y recordatorios se pueden seleccionar por
+UUID o por nombre/título exacto, sin distinguir mayúsculas ni tildes. Las
+búsquedas se limitan al usuario y devuelven candidatos si no hay una única
+coincidencia. También se pueden listar hábitos y recordatorios.
+
 ## Puntos a revisar (por confirmar si son fallos)
 1. `de_usuario` exige `usuario_id`; `Mensaje` y `RegistroHabito` no lo tienen.
 2. RESUELTO: `hay_conflicto` solo compara eventos del mismo usuario.

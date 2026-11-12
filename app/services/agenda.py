@@ -169,6 +169,15 @@ class ServicioAgenda:
         usuario = self._exigir_usuario(usuario_id)
         return self._eventos.listar_activos_del_dia(usuario_id, dia, usuario.zona())
 
+    def listar_eventos(self, usuario_id: UUID) -> list[Evento]:
+        """Lista todos los eventos del usuario en orden cronológico.
+
+        Raises:
+            UsuarioNoEncontrado: Si el usuario no existe.
+        """
+        self._exigir_usuario(usuario_id)
+        return self._eventos.listar_por_usuario(usuario_id)
+
     def celdas_del_dia(
         self, usuario_id: UUID, dia: date, minutos: int = 15
     ) -> list[bool]:
