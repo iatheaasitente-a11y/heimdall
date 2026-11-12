@@ -27,6 +27,7 @@ def test_catalogo_asigna_plazos_aprobados_por_rol(rol, inferencia):
     assert configuracion == ModeloConfigurado(
         "modelo-elegido",
         PoliticaRol(150, 10, 60, inferencia, 0.70),
+        rol,
     )
 
 

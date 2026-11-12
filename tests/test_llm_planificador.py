@@ -10,6 +10,7 @@ import pytest
 from app.llm.interfaz import ErrorRespuestaLLM, RespuestaEstructurada
 from app.llm.planificador import PlanificadorModelos
 from app.llm.roles import Catalogo, PoliticaRol, RolModelo
+from app.llm.vision import validar_imagen
 
 
 class MotorLocalFalso:
@@ -48,6 +49,12 @@ class MotorLocalFalso:
 
     def interpretar(self, historial, herramientas):
         self.llamadas.append(("inferir", self.nombre))
+        self.reloj.avanzar(self.reloj.duracion_inferencia)
+        return self.respuesta
+
+    def interpretar_imagen(self, imagen, instruccion):
+        self.llamadas.append(("inferir_imagen", self.nombre, instruccion))
+        validar_imagen(imagen)
         self.reloj.avanzar(self.reloj.duracion_inferencia)
         return self.respuesta
 
