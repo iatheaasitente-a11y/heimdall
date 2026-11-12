@@ -20,22 +20,59 @@
 ## Problemas resueltos
 
 - BOM (`\ufeff`): `Set-Content -Encoding UTF8` en Windows PowerShell anade BOM y Python lo rechaza. Solucion: `System.IO.File::WriteAllText` con `UTF8Encoding($false)`.
-- Here-strings truncados: al pegar bloques largos, PowerShell perdia lineas (regex, llaves). Solucion: base64 + `FromBase64String`, o parches pequenos y targeted.
-- Orden de reglas vs paso-a-paso: al principio el modulo de paso a paso interceptaba antes que `ReglasDeterministas` y rompia los flujos de un solo mensaje. Solucion: mover la llamada despues de `resultado_regla`.
-- Ruta relativa en .NET: `WriteAllText` con ruta relativa resolvia contra `C:\Users\alvaro`. Solucion: `Join-Path (Get-Location).Path`.
+- Here-strings truncados: al pegar bloques largos, PowerShell perdia lineas. Solucion: base64 + `FromBase64String`, o parches pequenos.
+- Orden de reglas vs paso-a-paso: el modulo interceptaba antes que `ReglasDeterministas`. Solucion: mover la llamada despues de `resultado_regla`.
+- Ruta relativa en .NET: `WriteAllText` resolvia contra `C:\Users\alvaro`. Solucion: `Join-Path (Get-Location).Path`.
 
 ## Estado al cerrar
 
 - Rama: `feat/validador-llm`.
 - Tests: 824 passed.
 - Todo pushado a `origin/feat/validador-llm`.
-- Raiz limpia (sin `reglas_respaldo.py`, `reparar_init.py`, `heimdall.db`, caches).
-- Docs consolidados: 4 vivos (`README.md`, `arquitectura.md`, `hoja-de-ruta.md`, `decisiones.md`) + `docs/historico/`.
+- Raiz limpia, docs consolidados (4 vivos + `docs/historico/`).
+
+## Pendiente y fases
+
+### Fase 1: cerrar agenda (mejoras 2-8)
+
+| # | Mejora | Estado |
+|---|---|---|
+| 2 | Recordatorio automatico al crear cita | Pendiente |
+| 3 | Eventos de todo el dia | Pendiente |
+| 4 | Repeticiones semanales/mensuales | Pendiente |
+| 5 | Cancelar/reprogramar por titulo | Pendiente |
+| 6 | Recordatorios recurrentes | Pendiente |
+| 7 | Avisos previos configurables | Pendiente |
+| 8 | Busqueda por rango con filtro | Pendiente |
+
+### Fase 2: chatbot funcional
+
+- Ollama real (llama3.2:3b) conectado y probado.
+- Ampliar cobertura de frases (fase 12: 48,6% ajuste, 43,3% reserva).
+- Prueba manual con lista de frases.
+
+### Fase 3: programador de avisos
+
+- Envio real de recordatorios (no solo simulado).
+- Avisos previos configurables.
+
+### Fase 4: panel visual
+
+- Streamlit con pestanas: Chat, Hoy, Habitos, Objetivos, Conversaciones.
+- Sin botones de borrar.
+
+### Fase 5: Telegram
+
+- Bot conectado y respondiendo en Telegram.
+
+### Fase 6: oficina virtual de agentes
+
+- Orquestador multi-agente (agenda, habitos, objetivos, NBA, recordatorios).
+- Gestion via GitHub Projects.
+- Integracion con OpenCode.
 
 ## Proxima sesion
 
-1. Revisar `docs/mejoras-agenda.md` (mejora 1 hecha, 2-8 pendientes).
-2. Empezar mejora 2: recordatorio automatico al crear cita.
-3. Despues: mejoras 3-8 una a una, cada una con rama, tests y commit.
-4. Cuando la agenda este cerrada: chatbot funcional con Ollama real.
-5. Luego: avisos reales, panel Streamlit, Telegram y oficina virtual de agentes.
+1. Empezar mejora 2: recordatorio automatico al crear cita.
+2. Despues: mejoras 3-8 una a una.
+3. Cuando la agenda este cerrada: Fase 2 (chatbot funcional).
