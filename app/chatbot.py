@@ -82,6 +82,7 @@ def main() -> None:
             )
             conexion.commit()
             try:
+                conexion.execute("BEGIN IMMEDIATE")
                 historial = aplicacion.conversaciones.historial_para_modelo(
                     usuario_id,
                     conversacion.id,
@@ -97,15 +98,6 @@ def main() -> None:
                     "error": "No he podido interpretar la solicitud.",
                 }
                 respuesta = json.dumps(salida, ensure_ascii=False)
-            except (sqlite3.Error, OSError, TypeError):
-                _REGISTRO.exception("Fallo inesperado al procesar un turno.")
-                salida = {
-                    "ok": False,
-                    "error": "No se pudo completar la solicitud por un error interno.",
-                }
-                respuesta = json.dumps(salida, ensure_ascii=False)
-            print(respuesta)
-            try:
                 aplicacion.conversaciones.agregar_mensaje(
                     usuario_id,
                     conversacion.id,
@@ -115,13 +107,36 @@ def main() -> None:
                 )
                 conexion.commit()
             except (sqlite3.Error, OSError, TypeError):
-                _REGISTRO.exception("No se pudo guardar la respuesta del turno.")
-                print(
-                    "Aviso: el mensaje del usuario quedó guardado, "
-                    "pero no se pudo guardar la respuesta.",
-                    file=sys.stderr,
-                )
-                break
+                try:
+                    conexion.rollback()
+                except (sqlite3.Error, OSError):
+                    _REGISTRO.exception("No se pudo revertir la transacción del turno.")
+                _REGISTRO.exception("Fallo inesperado al procesar un turno.")
+                salida = {
+                    "ok": False,
+                    "error": "No se pudo completar la solicitud por un error interno.",
+                }
+                respuesta = json.dumps(salida, ensure_ascii=False)
+                print(respuesta)
+                try:
+                    aplicacion.conversaciones.agregar_mensaje(
+                        usuario_id,
+                        conversacion.id,
+                        RolMensaje.ASISTENTE,
+                        respuesta,
+                        {"resultado": salida},
+                    )
+                    conexion.commit()
+                except (sqlite3.Error, OSError, TypeError):
+                    _REGISTRO.exception("No se pudo guardar la respuesta del turno.")
+                    print(
+                        "Aviso: el mensaje del usuario quedó guardado, "
+                        "pero no se pudo guardar la respuesta.",
+                        file=sys.stderr,
+                    )
+                    break
+            else:
+                print(respuesta)
 
 
 if __name__ == "__main__":

@@ -166,6 +166,25 @@ def test_listar_ultimos_devuelve_los_ultimos_en_orden_cronologico(repos):
     assert len(mensajes.listar_ultimos(c.id, 50)) == 5
 
 
+def test_listar_ultimos_desempata_fechas_iguales_por_insercion(repos):
+    usuarios, conversaciones, mensajes = repos
+    _, c = crear_conversacion(usuarios, conversaciones)
+    instante = hora(9)
+    for contenido in ("Propuesta", "Respuesta"):
+        mensajes.guardar(
+            Mensaje(
+                c.id,
+                RolMensaje.ASISTENTE,
+                contenido,
+                fecha_creacion=instante,
+            )
+        )
+
+    assert [
+        mensaje.contenido for mensaje in mensajes.listar_ultimos(c.id, 2)
+    ] == ["Propuesta", "Respuesta"]
+
+
 @pytest.mark.parametrize("limite", [0, -1])
 def test_listar_ultimos_rechaza_limite_no_valido(repos, limite):
     usuarios, conversaciones, mensajes = repos

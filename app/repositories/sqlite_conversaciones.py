@@ -144,12 +144,12 @@ class RepositorioMensajesSQLite(RepositorioMensajes):
         filas = self._conexion.execute(
             """
             SELECT * FROM (
-                SELECT * FROM mensajes
+                SELECT rowid AS orden_insercion, * FROM mensajes
                 WHERE conversacion_id = ?
-                ORDER BY fecha_creacion DESC, id DESC
+                ORDER BY rowid DESC
                 LIMIT ?
             )
-            ORDER BY fecha_creacion, id
+            ORDER BY orden_insercion
             """,
             (str(conversacion_id), limite),
         ).fetchall()

@@ -97,6 +97,16 @@ la herramienta y sus argumentos pertenecen al catálogo; al motor solo pasa los
 últimos cuatro turnos y, si hay una aclaración pendiente, la pregunta bajo
 `esperando` en un mensaje de rol no privilegiado.
 
+Las operaciones LLM de cancelar, reprogramar o cambiar estado requieren una
+confirmación explícita. La propuesta JSON la crea la aplicación, la vincula al
+usuario y a la conversación y conserva la herramienta con sus argumentos
+validados; al confirmar, la herramienta vuelve a validar permisos y estado.
+El chatbot abre `BEGIN IMMEDIATE`, lee el historial reciente y guarda el
+resultado dentro de la misma transacción que ejecuta la operación. Así, dos
+confirmaciones concurrentes no pueden reutilizar la misma propuesta. El
+historial reciente usa el orden de inserción para desempatar marcas de tiempo
+iguales. No se modifican ni eliminan mensajes y no se añade una tabla de estado.
+
 Los motores de VISION y OCR aceptan rutas locales a imágenes JPEG o PNG.
 `app/llm/vision.py` aplica los límites de tamaño y dimensiones aprobados,
 rechaza enlaces simbólicos y comprueba el tamaño antes de leer. El planificador
