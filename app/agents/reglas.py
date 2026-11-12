@@ -118,6 +118,7 @@ class ReglasDeterministas:
         self._eventos_pendientes: dict[UUID, dict[str, object]] = {}
         self._acciones_pendientes: dict[UUID, dict[str, object]] = {}
         self._eventos_recurrentes_pendientes: dict[UUID, list[dict[str, object]]] = {}
+        self._conflictos_pendientes: dict[UUID, dict[str, object]] = {}
 
     def procesar(self, usuario_id: UUID, texto: str) -> dict[str, object] | None:
         """Resuelve una solicitud reconocida o devuelve ``None`` si no hay regla."""
@@ -183,6 +184,78 @@ class ReglasDeterministas:
                     "ok": True,
                     "datos": "He cancelado la creacion del evento.",
                 }
+        conflicto = self._conflictos_pendientes.get(usuario_id)
+        if conflicto is not None:
+            if conflicto.get("esperando_hora"):
+                ahora_conflicto = self._ahora(usuario_id)
+                evento = conflicto["evento_existente"]
+                comienza_viejo = datetime.fromisoformat(evento["comienza"])
+                termina_viejo = datetime.fromisoformat(evento["termina"])
+                duracion = termina_viejo - comienza_viejo
+                coincidencia = re.search(
+                    r"a\s+las\s+(\d{1,2})(?::(\d{2}))?",
+                    texto,
+                    re.IGNORECASE,
+                )
+                if coincidencia is None:
+                    return _preguntar("¿A qué hora quieres moverlo?")
+                hora = int(coincidencia.group(1))
+                minutos = int(coincidencia.group(2) or 0)
+                nueva = datetime.combine(
+                    comienza_viejo.date(),
+                    time(hora, minutos),
+                    tzinfo=ahora_conflicto.tzinfo,
+                )
+                self._conflictos_pendientes.pop(usuario_id)
+                return self._herramientas.obtener(
+                    "agenda_reprogramar_evento"
+                ).ejecutar(
+                    usuario_id,
+                    {
+                        "evento_id": evento["id"],
+                        "comienza": nueva,
+                        "termina": nueva + duracion,
+                    },
+                )
+
+            if normalizado == "1":
+                evento = conflicto["evento_existente"]
+                nuevo = conflicto["evento_nuevo"]
+                duracion = nuevo["termina"] - nuevo["comienza"]
+                huecos = self._huecos_libres(
+                    usuario_id,
+                    nuevo["comienza"].date(),
+                    duracion,
+                    self._ahora(usuario_id).tzinfo,
+                )
+                lineas = ["Horas libres cercanas:"]
+                for hueco in huecos:
+                    lineas.append(f"• {hueco.strftime('%H:%M')}")
+                return {"ok": True, "datos": "\n".join(lineas)}
+
+            if normalizado == "2":
+                conflicto["esperando_hora"] = True
+                return _preguntar("¿A qué hora quieres moverlo?")
+
+            if normalizado == "3":
+                self._conflictos_pendientes.pop(usuario_id)
+                cancelado = self._herramientas.obtener(
+                    "agenda_cancelar_evento"
+                ).ejecutar(
+                    usuario_id,
+                    {"evento_id": conflicto["evento_existente"]["id"]},
+                )
+                if cancelado.get("ok") is not True:
+                    return cancelado
+                return self._herramientas.obtener(
+                    "agenda_crear_evento"
+                ).ejecutar(
+                    usuario_id,
+                    conflicto["evento_nuevo"],
+                )
+
+            return _preguntar("Elige una opcion: 1, 2 o 3.")
+
 
         respuesta_conversacion = _respuesta_conversacion(normalizado)
         if respuesta_conversacion is not None:
@@ -670,7 +743,7 @@ class ReglasDeterministas:
         }
 
     def _crear_evento(self, usuario_id: UUID, texto: str) -> dict[str, object]:
-        """Crea un evento solo cuando la fecha, hora, título y duración son claros."""
+        """Crea un evento y propone opciones cuando hay un conflicto."""
         ahora = self._ahora(usuario_id)
         if ahora is None:
             return _preguntar("¿Qué día y a qué hora quieres el evento?")
@@ -680,7 +753,7 @@ class ReglasDeterministas:
         fecha_hora = resuelta
         if fecha_hora.hora is None:
             return _preguntar("¿A qué hora quieres que empiece el evento?")
-        titulo = _titulo_evento(texto)
+        titulo, lugar, notas = _detalles_evento(texto)
         if not titulo:
             return _preguntar("¿Qué título quieres ponerle al evento?")
         duracion = _duracion_explicita(texto)
@@ -728,25 +801,32 @@ class ReglasDeterministas:
                         continue
 
                     if comienza < fin_evento and termina > inicio_evento:
-                        huecos = self._huecos_libres(
-                            usuario_id,
-                            comienza.date(),
-                            duracion,
-                            ahora.tzinfo,
-                        )
-                        opciones = "\n".join(
-                            f"\u2022 {hueco.strftime('%H:%M')}"
-                            for hueco in huecos
-                        )
+                        argumentos = {
+                            "titulo": titulo,
+                            "comienza": comienza,
+                            "termina": termina,
+                        }
+                        if lugar:
+                            argumentos["ubicacion"] = lugar
+                        if notas:
+                            argumentos["descripcion"] = notas
+
+                        self._conflictos_pendientes[usuario_id] = {
+                            "evento_nuevo": argumentos,
+                            "evento_existente": evento,
+                        }
+
                         return {
-                            "ok": False,
-                            "error": (
-                                f"Ya tienes '{evento.get('titulo', 'un evento')}' "
-                                f"de {inicio_evento.strftime('%H:%M')} a "
+                            "ok": True,
+                            "datos": (
+                                f"Ya tienes "
+                                f"'{evento.get('titulo', 'un evento')}' de "
+                                f"{inicio_evento.strftime('%H:%M')} a "
                                 f"{fin_evento.strftime('%H:%M')} ese dia.\n\n"
-                                "Horas libres cercanas:\n"
-                                f"{opciones}\n\n"
-                                "Elige una hora o cancela el evento existente."
+                                "1. Elegir otra hora\n"
+                                "2. Mover el evento existente\n"
+                                "3. Cancelar el existente\n\n"
+                                "Elige una opcion (1, 2 o 3)."
                             ),
                         }
 
@@ -761,6 +841,11 @@ class ReglasDeterministas:
             "comienza": comienza,
             "termina": termina,
         }
+        if lugar:
+            argumentos["ubicacion"] = lugar
+        if notas:
+            argumentos["descripcion"] = notas
+
         self._eventos_pendientes[usuario_id] = argumentos
 
         if duracion.total_seconds() % 3600 == 0:
@@ -773,15 +858,23 @@ class ReglasDeterministas:
             titulo,
             comienza.date(),
         )
+
+        detalles = ""
+        if lugar:
+            detalles += f"\n• Lugar: {lugar}"
+        if notas:
+            detalles += f"\n• Notas: {notas}"
+
         aviso = ""
         if mismo_nombre:
             aviso = "\n\nYa tienes un evento con ese nombre ese dia."
 
         propuesta = (
             "Voy a crear este evento:\n"
-            f"\u2022 {titulo}\n"
-            f"\u2022 {comienza.strftime('%d/%m/%Y %H:%M')}\n"
-            f"\u2022 Duracion: {duracion_texto}"
+            f"• {titulo.capitalize()}\n"
+            f"• {comienza.strftime('%d/%m/%Y %H:%M')}\n"
+            f"• Duracion: {duracion_texto}"
+            f"{detalles}"
             f"{aviso}\n\n"
             "Responde si para confirmar o no para cancelar."
         )
@@ -1053,6 +1146,40 @@ def _es_actualizacion_objetivo(texto: str) -> bool:
         palabra in texto
         for palabra in ("actualiza", "actualizar", "progreso", "llevo", "%")
     )
+
+
+def _detalles_evento(texto: str) -> tuple[str, str, str]:
+    """Separa el titulo, el lugar y las notas de una peticion de evento."""
+    resto = _limpiar_tiempos(texto)
+    notas = ""
+    lugar = ""
+
+    etiqueta = re.search(
+        r"\bnotas?:\s*(?P<notas>.+)$",
+        resto,
+        re.IGNORECASE,
+    )
+    if etiqueta:
+        notas = etiqueta.group("notas").strip()
+        resto = resto[: etiqueta.start()].strip().rstrip(", ")
+
+    coincidencia = re.search(
+        r"\ben\s+(?:la\s+|el\s+|los\s+|las\s+)?(?P<lugar>.+)$",
+        resto,
+        re.IGNORECASE,
+    )
+    if coincidencia:
+        lugar = coincidencia.group("lugar").strip()
+        resto = resto[: coincidencia.start()].strip()
+
+    if lugar and not notas:
+        partes = lugar.split(",", 1)
+        if len(partes) == 2:
+            lugar = partes[0].strip()
+            notas = partes[1].strip()
+
+    titulo = _titulo_evento(resto)
+    return titulo, lugar, notas
 
 
 def _titulo_evento(texto: str) -> str:

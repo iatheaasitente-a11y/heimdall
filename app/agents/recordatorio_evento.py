@@ -1,4 +1,4 @@
-"""Deteccion de recordatorios ligados a un evento existente."""
+"""Detecta recordatorios ligados a una cita existente."""
 
 import re
 from datetime import datetime, timedelta
@@ -7,9 +7,8 @@ from uuid import UUID
 from app.tools.registro import RegistroHerramientas
 
 _PATRON = re.compile(
-    r"\brecu[eé]rdame\s+(?:el\s+|la\s+)?"
-    r"(?P<titulo>.+?)\s+"
-    r"(?P<minutos>\d+)\s+minutos?\s+antes\b",
+    r"recuerdame\s+(?P<titulo>.+?)\s+"
+    r"(?P<minutos>\d+)\s+minutos?\s+antes",
     re.IGNORECASE,
 )
 
@@ -20,13 +19,18 @@ def detectar_recordatorio_de_evento(
     texto: str,
     ahora: datetime,
 ) -> dict[str, object] | None:
-    """Detecta avisos del tipo: recuerdame el dentista 30 minutos antes."""
-
+    """Propone un recordatorio N minutos antes de una cita existente."""
     coincidencia = _PATRON.search(texto)
     if coincidencia is None:
         return None
 
     titulo = coincidencia.group("titulo").strip()
+    titulo = re.sub(
+        r"^(el|la|los|las)\s+",
+        "",
+        titulo,
+        flags=re.IGNORECASE,
+    ).strip()
     minutos = int(coincidencia.group("minutos"))
 
     try:
@@ -47,32 +51,19 @@ def detectar_recordatorio_de_evento(
         return None
 
     comienza = datetime.fromisoformat(evento["comienza"])
-    if comienza.tzinfo is None:
-        comienza = comienza.replace(tzinfo=ahora.tzinfo)
-
-    aviso = comienza - timedelta(minutes=minutos)
-
-    if aviso <= ahora:
-        return {
-            "ok": False,
-            "error": (
-                f"No puedo programar un aviso para '{titulo}' porque "
-                "el momento elegido ya ha pasado."
-            ),
-        }
-
-    propuesta = (
-        f"Voy a recordarte '{titulo}' {minutos} minutos antes, "
-        f"el {aviso.strftime('%d/%m/%Y')} a las {aviso.strftime('%H:%M')}.\n\n"
-        "Responde si para confirmar o no para cancelar."
-    )
+    cuando = (comienza - timedelta(minutes=minutos)).astimezone(ahora.tzinfo)
+    mensaje = f"Recordatorio de {titulo}"
 
     return {
-        "herramienta": "recordatorios_programar_para_evento",
+        "propuesta": (
+            f"Voy a programar un recordatorio de {titulo} "
+            f"{minutos} minutos antes "
+            f"({cuando.strftime('%d/%m/%Y %H:%M')}).\n\n"
+            "Responde si para confirmar o no para cancelar."
+        ),
+        "herramienta": "recordatorios_programar",
         "argumentos": {
-            "evento_id": evento.get("id"),
-            "titulo": titulo,
-            "minutos": minutos,
+            "mensaje": mensaje,
+            "cuando": cuando,
         },
-        "propuesta": propuesta,
     }
