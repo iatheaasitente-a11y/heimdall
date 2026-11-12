@@ -1,11 +1,11 @@
 """Agente personal con reglas deterministas antes de la interpretación LLM."""
 
 from collections.abc import Callable, Mapping, Sequence
-from datetime import date
-import unicodedata
+from datetime import date, datetime
 from uuid import UUID
 
 from app.agents.base import AgenteBase
+from app.agents.reglas import ReglasDeterministas
 from app.llm.frenos import FrenosLLM
 from app.llm.interfaz import MotorLLM
 from app.tools.base import Herramienta
@@ -20,6 +20,7 @@ class AgentePersonal(AgenteBase):
         herramientas: RegistroHerramientas,
         motor: MotorLLM | None = None,
         hoy_por_usuario: Callable[[UUID], date] | None = None,
+        ahora_por_usuario: Callable[[UUID], datetime] | None = None,
     ) -> None:
         """Configura el catálogo, el motor opcional y el contexto de fecha."""
         self._herramientas = herramientas
@@ -28,6 +29,11 @@ class AgentePersonal(AgenteBase):
             hoy_por_usuario
             if hoy_por_usuario is not None
             else _hoy_local
+        )
+        self._reglas = ReglasDeterministas(
+            herramientas,
+            self._hoy_por_usuario,
+            ahora_por_usuario,
         )
 
     def procesar(
@@ -45,11 +51,9 @@ class AgentePersonal(AgenteBase):
         Raises:
             KeyError: Si no está registrada la herramienta de resumen diario.
         """
-        if _es_resumen_de_hoy(texto):
-            return self._herramientas.obtener("resumen_del_dia").ejecutar(
-                usuario_id,
-                {"dia": self._hoy_por_usuario(usuario_id)},
-            )
+        resultado_regla = self._reglas.procesar(usuario_id, texto)
+        if resultado_regla is not None:
+            return resultado_regla
         if self._frenos is None:
             return None
 
@@ -83,23 +87,3 @@ def _definicion(herramienta: Herramienta) -> dict[str, object]:
         "description": herramienta.descripcion,
         "parameters": herramienta.esquema_json(),
     }
-
-
-def _es_resumen_de_hoy(texto: str) -> bool:
-    """Reconoce unas pocas formas comunes de consultar el día actual."""
-    normalizado = _normalizar(texto)
-    return any(
-        frase in normalizado
-        for frase in ("que tengo hoy", "que tengo para hoy", "que hay hoy")
-    )
-
-
-def _normalizar(texto: str) -> str:
-    """Pasa el mensaje a minúsculas sin diacríticos."""
-    sin_acentos = unicodedata.normalize("NFKD", texto.casefold())
-    caracteres = (
-        caracter
-        for caracter in sin_acentos
-        if not unicodedata.combining(caracter)
-    )
-    return " ".join("".join(caracteres).split())

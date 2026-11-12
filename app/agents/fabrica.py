@@ -1,7 +1,7 @@
 """Creación de agentes según el tipo y el motor configurados."""
 
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from app.agents.base import AgenteBase
@@ -17,6 +17,7 @@ def crear_agente(
     hoy_por_usuario: Callable[[UUID], date],
     motor: MotorLLM | None = None,
     modo_llm: str | None = None,
+    ahora_por_usuario: Callable[[UUID], datetime] | None = None,
 ) -> AgenteBase:
     """Crea un agente soportado y configura el motor LLM.
 
@@ -26,4 +27,9 @@ def crear_agente(
     if tipo != "personal":
         raise ValueError(f"No existe el agente «{tipo}».")
     motor_seleccionado = motor if motor is not None else crear_motor(modo_llm)
-    return AgentePersonal(herramientas, motor_seleccionado, hoy_por_usuario)
+    return AgentePersonal(
+        herramientas,
+        motor_seleccionado,
+        hoy_por_usuario,
+        ahora_por_usuario,
+    )

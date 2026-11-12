@@ -97,9 +97,12 @@ def crear_composicion(
         fuente_nba,
     )
 
-    def hoy_por_usuario(usuario_id: UUID) -> date:
+    def ahora_por_usuario(usuario_id: UUID) -> datetime:
         usuario = usuarios.obtener(usuario_id)
-        return reloj().astimezone(usuario.zona()).date()
+        return reloj().astimezone(usuario.zona())
+
+    def hoy_por_usuario(usuario_id: UUID) -> date:
+        return ahora_por_usuario(usuario_id).date()
 
     agente = crear_agente(
         "personal",
@@ -107,6 +110,7 @@ def crear_composicion(
         hoy_por_usuario,
         motor=motor,
         modo_llm=modo_llm,
+        ahora_por_usuario=ahora_por_usuario,
     )
     return Composicion(
         usuarios,

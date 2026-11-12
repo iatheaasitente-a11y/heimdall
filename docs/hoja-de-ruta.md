@@ -35,6 +35,13 @@ UUID o por nombre/título exacto, sin distinguir mayúsculas ni tildes. Las
 búsquedas se limitan al usuario y devuelven candidatos si no hay una única
 coincidencia. También se pueden listar hábitos y recordatorios.
 
+## Reglas del agente
+
+Hecho: el agente delega en herramientas para crear eventos y recordatorios,
+registrar o consultar hábitos, actualizar objetivos y listar el día. Si falta
+una fecha, una hora queda sin franja, la duración de un evento o un nombre no
+es único, pregunta antes de ejecutar la operación.
+
 ## Puntos a revisar (por confirmar si son fallos)
 1. `de_usuario` exige `usuario_id`; `Mensaje` y `RegistroHabito` no lo tienen.
 2. RESUELTO: `hay_conflicto` solo compara eventos del mismo usuario.

@@ -32,7 +32,13 @@ REGLAS = {
     ),
     "tools": ("app.domain", "app.schemas", "app.services", "app.tools"),
     "llm": ("app.llm",),
-    "agents": ("app.domain.message", "app.llm", "app.tools", "app.agents"),
+    "agents": (
+        "app.domain.message",
+        "app.domain.lenguaje_fechas",
+        "app.llm",
+        "app.tools",
+        "app.agents",
+    ),
     "chatbot": (
         "app.composicion",
         "app.database",
@@ -165,7 +171,9 @@ PERMITIDOS = [
     ("services", "from app.repositories import interfaces\n"
                  "from app.repositories.interfaces import RepositorioEventos\n"
                  "from app.schemas.user import UsuarioSchema\n"),
-    ("agents", "from app.domain.message import Mensaje\nfrom app.llm.backend import LLMBackend\n"
+    ("agents", "from app.domain.message import Mensaje\n"
+               "from app.domain.lenguaje_fechas import resolver_fecha\n"
+               "from app.llm.backend import LLMBackend\n"
                "from app.tools.base import Herramienta\n"),
     ("llm", "import json\nfrom pydantic import BaseModel\n"),
     ("database", "import sqlite3\nfrom app.database.fechas import a_texto\n"),

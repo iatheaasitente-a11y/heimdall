@@ -44,7 +44,7 @@ sin ejecutar código. Cada fallo indica archivo y línea.
 | `services` | `domain`, `schemas`, `repositories.interfaces`, `services` | No |
 | `tools` | `domain`, `schemas`, `services`, `tools` | Sí |
 | `llm` | solo `llm` | No |
-| `agents` | `domain.message`, `llm`, `tools`, `agents` | Sí |
+| `agents` | `domain.message`, `domain.lenguaje_fechas`, `llm`, `tools`, `agents` | Sí |
 | `chatbot` | `composicion`, `database`, `domain.message`, `llm.configuracion`, `llm.ollama` | No |
 
 - `sqlite3` solo se usa en `database` y `repositories`.
@@ -72,6 +72,8 @@ que el motor nube permanece como esqueleto sin credenciales ni red. Los frenos
 limitan consultas por conversación y descartan respuestas de baja confianza.
 
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
+Las reglas interpretan fechas con `app/domain/lenguaje_fechas.py`; si faltan
+datos, la hora es ambigua o hay varios nombres candidatos, piden aclaración.
 Solo si no hay una regla aplicable y se configura un motor consulta el LLM; el
 agente no contiene lógica de negocio.
 
