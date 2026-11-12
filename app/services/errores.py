@@ -101,6 +101,7 @@ class RegistroNoEncontrado(ErrorDeServicio):
         super().__init__(f"No existe el registro {registro_id}.")
         self.registro_id = registro_id
 
+
 @contextmanager
 def transicion_de_estado() -> Iterator[None]:
     """Convierte ``TransicionNoPermitida`` del dominio en ``CambioDeEstadoNoPermitido``."""
