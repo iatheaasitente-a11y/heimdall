@@ -14,3 +14,4 @@
 | 10 | Medir con un CSV de frases antes de añadir canales | Lección de femix: no crecer antes de medir |
 | 11 | Estados con transiciones estrictas | Un objeto cerrado no se reabre por accidente; la corrección manual es explícita (`restablecer()`) |
 | 12 | Conservar objetivos cerrados | Historial consultable; `restablecer()` es explícito |
+| 13 | Cerrar conversaciones y conservar sus mensajes | No se borran ni se editan los mensajes; el historial queda disponible |

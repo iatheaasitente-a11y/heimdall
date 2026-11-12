@@ -129,6 +129,24 @@ class FechaLimiteEnElPasado(ErrorDeServicio):
         self.fecha_limite = fecha_limite
 
 
+class ConversacionNoEncontrada(ErrorDeServicio):
+    """No existe la conversación solicitada."""
+
+    def __init__(self, conversacion_id: UUID) -> None:
+        """Guarda el identificador buscado y construye el mensaje."""
+        super().__init__(f"No existe la conversación {conversacion_id}.")
+        self.conversacion_id = conversacion_id
+
+
+class ConversacionCerrada(ErrorDeServicio):
+    """La conversación está cerrada y no admite cambios."""
+
+    def __init__(self, titulo: str) -> None:
+        """Guarda el título de la conversación y construye el mensaje."""
+        super().__init__(f"La conversación «{titulo}» está cerrada.")
+        self.titulo = titulo
+
+
 @contextmanager
 def transicion_de_estado() -> Iterator[None]:
     """Convierte ``TransicionNoPermitida`` del dominio en ``CambioDeEstadoNoPermitido``."""

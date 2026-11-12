@@ -11,8 +11,8 @@
     Dominio (app/domain) y Esquemas (app/schemas) los usan todas las capas.
 
 Hoy existen el dominio, los esquemas, la base de datos SQLite, los repositorios
-SQLite y los servicios de usuarios, agenda, recordatorios, hábitos y objetivos.
-Falta el servicio de conversaciones.
+SQLite y los seis servicios: usuarios, agenda, recordatorios, hábitos, objetivos
+y conversaciones.
 
 ## Reglas
 1. `app/domain` es puro: sin SQL, sin FastAPI, sin librerías de IA, sin I/O.
