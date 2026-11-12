@@ -14,6 +14,7 @@ valida con los esquemas, aplica las reglas del dominio y guarda con los reposito
 | `ServicioUsuarios` | registrar, obtener, cambiar zona horaria, desactivar |
 | `ServicioAgenda` | crear, cancelar, completar y reprogramar eventos; eventos y celdas del día |
 | `ServicioRecordatorios` | programar avisos libres o de un evento, cancelar, marcar enviado, pendientes del día y vencidos |
+| `ServicioHabitos` | crear, listar y desactivar hábitos; registrar y borrar progreso; progreso del día y racha |
 
 ## Coherencia entre agenda y recordatorios
 Si `ServicioAgenda` recibe el repositorio de recordatorios:
@@ -41,6 +42,9 @@ ofrecerán como herramientas del chatbot.
 | `RecordatorioEnElPasado` | La hora del aviso ya ha pasado |
 | `EventoNoActivo` | El evento está cancelado o completado y no admite avisos ni cambios de hora |
 | `CambioDeEstadoNoPermitido` | Cambio de estado que las reglas no permiten, por ejemplo cancelar un evento ya completado |
+| `HabitoNoEncontrado` | El hábito no existe o es de otro usuario |
+| `HabitoInactivo` | El hábito está desactivado y no admite registros |
+| `RegistroNoEncontrado` | El registro no existe o no es del hábito indicado |
 
 Los datos mal formados (nombre vacío, zona inexistente, fechas sin zona) siguen
 lanzando `pydantic.ValidationError` o `ValueError`.
