@@ -32,6 +32,15 @@ _PALABRAS_NUMERO = {
     "once": 11,
     "doce": 12,
 }
+_DIAS_SEMANA = {
+    "lunes": 0,
+    "martes": 1,
+    "miercoles": 2,
+    "jueves": 3,
+    "viernes": 4,
+    "sabado": 5,
+    "domingo": 6,
+}
 _VERBOS_PROGRESO = (
     "bebido",
     "caminado",
@@ -107,10 +116,49 @@ class ReglasDeterministas:
         self._ahora_por_usuario = ahora_por_usuario
         self._eventos_pendientes: dict[UUID, dict[str, object]] = {}
         self._acciones_pendientes: dict[UUID, dict[str, object]] = {}
+        self._eventos_recurrentes_pendientes: dict[UUID, list[dict[str, object]]] = {}
 
     def procesar(self, usuario_id: UUID, texto: str) -> dict[str, object] | None:
         """Resuelve una solicitud reconocida o devuelve ``None`` si no hay regla."""
         normalizado = _normalizar(texto)
+
+        recurrentes = self._eventos_recurrentes_pendientes.get(usuario_id)
+        if recurrentes is not None:
+            if normalizado in {"si", "vale", "confirmo", "confirmar"}:
+                self._eventos_recurrentes_pendientes.pop(usuario_id)
+                creados = 0
+                errores = []
+                for argumentos in recurrentes:
+                    resultado = self._herramientas.obtener(
+                        "agenda_crear_evento"
+                    ).ejecutar(usuario_id, argumentos)
+                    if resultado.get("ok") is True:
+                        creados += 1
+                    else:
+                        errores.append(
+                            resultado.get(
+                                "error",
+                                "No se pudo crear un evento.",
+                            )
+                        )
+                if errores:
+                    return {
+                        "ok": False,
+                        "error": (
+                            f"He creado {creados} eventos, pero no todos.\n"
+                            + "\n".join(errores)
+                        ),
+                    }
+                return {
+                    "ok": True,
+                    "datos": f"He creado {creados} eventos.",
+                }
+            if normalizado in {"no", "cancela", "cancelar"}:
+                self._eventos_recurrentes_pendientes.pop(usuario_id)
+                return {
+                    "ok": True,
+                    "datos": "He cancelado la creacion de los eventos.",
+                }
 
         pendiente = self._eventos_pendientes.get(usuario_id)
         if pendiente is not None:
@@ -161,10 +209,46 @@ class ReglasDeterministas:
                     "datos": "He cancelado la operacion.",
                 }
 
+        cancelar_recordatorio = _detectar_cancelar_recordatorio(
+            normalizado
+        )
+        if cancelar_recordatorio is not None:
+            self._acciones_pendientes[usuario_id] = cancelar_recordatorio
+            return {
+                "ok": True,
+                "datos": cancelar_recordatorio["propuesta"],
+            }
+
+        reprogramacion = _detectar_reprogramacion(
+            normalizado,
+            self._ahora(usuario_id),
+        )
+        if reprogramacion is not None:
+            if reprogramacion.get("ok") is False:
+                return reprogramacion
+            self._acciones_pendientes[usuario_id] = reprogramacion
+            return {
+                "ok": True,
+                "datos": reprogramacion["propuesta"],
+            }
+
         accion = _detectar_accion(normalizado)
         if accion is not None:
             self._acciones_pendientes[usuario_id] = accion
             return {"ok": True, "datos": accion["propuesta"]}
+
+        recurrentes = self._detectar_eventos_recurrentes(
+            usuario_id,
+            normalizado,
+            self._ahora(usuario_id),
+        )
+        if recurrentes is not None:
+            if isinstance(recurrentes, dict) and recurrentes.get("ok") is False:
+                return recurrentes
+            self._eventos_recurrentes_pendientes[usuario_id] = recurrentes[
+                "eventos"
+            ]
+            return {"ok": True, "datos": recurrentes["propuesta"]}
 
         if _PATRON_RECORDATORIO.search(normalizado):
             return self._crear_recordatorio(usuario_id, texto)
@@ -306,6 +390,129 @@ class ReglasDeterministas:
             )
         )
         return candidatos[:3]
+
+    def _detectar_eventos_recurrentes(
+        self,
+        usuario_id: UUID,
+        texto: str,
+        ahora: datetime,
+    ) -> dict[str, object] | None:
+        """Detecta varios dias para un mismo evento y propone su creacion."""
+
+        patron = re.compile(
+            r"(?:crea(?:r)?\s+)?(?:un\s+)?(?:evento\s+)?"
+            r"(?P<titulo>.+?)\s+"
+            r"(?P<dias>lunes|martes|miercoles|jueves|viernes|sabado|domingo)"
+            r"(?:\s*(?:,|y)\s*(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo))*"
+            r"\s+a\s+las\s+(?P<hora>\d{1,2})(?::(?P<minutos>\d{2}))?"
+            r"(?:\s+durante\s+(?P<cantidad>\d+)\s+horas?)?",
+            re.IGNORECASE,
+        )
+        coincidencia = patron.search(texto)
+
+        if coincidencia is None:
+            return None
+
+        titulo = coincidencia.group("titulo").strip()
+        nombres_dias = re.findall(
+            r"lunes|martes|miercoles|jueves|viernes|sabado|domingo",
+            coincidencia.group(0),
+            re.IGNORECASE,
+        )
+        dias = sorted({_DIAS_SEMANA[nombre] for nombre in nombres_dias})
+
+        if not dias:
+            return None
+
+        hora = int(coincidencia.group("hora"))
+        minutos = int(coincidencia.group("minutos") or 0)
+        cantidad = int(coincidencia.group("cantidad") or 1)
+        duracion = timedelta(hours=cantidad)
+
+        try:
+            herramienta_dia = self._herramientas.obtener(
+                "agenda_eventos_del_dia"
+            )
+        except KeyError:
+            herramienta_dia = None
+
+        eventos = []
+
+        for numero_dia in dias:
+            diferencia = (numero_dia - ahora.weekday()) % 7
+            fecha = ahora.date() + timedelta(days=diferencia)
+            comienza = datetime.combine(
+                fecha,
+                time(hora, minutos),
+                tzinfo=ahora.tzinfo,
+            )
+
+            if comienza <= ahora:
+                fecha += timedelta(days=7)
+                comienza = datetime.combine(
+                    fecha,
+                    time(hora, minutos),
+                    tzinfo=ahora.tzinfo,
+                )
+
+            termina = comienza + duracion
+
+            if herramienta_dia is not None:
+                existentes = herramienta_dia.ejecutar(
+                    usuario_id,
+                    {"dia": fecha},
+                )
+                for evento in existentes.get("datos") or []:
+                    if not isinstance(evento, dict):
+                        continue
+                    inicio_evento = _a_zona(
+                        evento.get("comienza"),
+                        ahora.tzinfo,
+                    )
+                    fin_evento = _a_zona(
+                        evento.get("termina"),
+                        ahora.tzinfo,
+                    )
+                    if inicio_evento is None or fin_evento is None:
+                        continue
+                    if comienza < fin_evento and termina > inicio_evento:
+                        return {
+                            "ok": False,
+                            "error": (
+                                f"Ya tienes '{evento.get('titulo', 'un evento')}' "
+                                f"de {inicio_evento.strftime('%H:%M')} a "
+                                f"{fin_evento.strftime('%H:%M')} el "
+                                f"{fecha.strftime('%d/%m/%Y')}.\n"
+                                "Elige otro horario o cancela el evento existente."
+                            ),
+                        }
+
+            eventos.append(
+                {
+                    "titulo": titulo,
+                    "comienza": comienza,
+                    "termina": termina,
+                }
+            )
+
+        lineas = [f"Voy a crear estos {len(eventos)} eventos:"]
+
+        for evento in eventos:
+            comienza = evento["comienza"]
+            termina = evento["termina"]
+            lineas.append(
+                f"\u2022 {evento['titulo']} \u2014 "
+                f"{comienza.strftime('%d/%m/%Y %H:%M')} a "
+                f"{termina.strftime('%H:%M')}"
+            )
+
+        lineas.append("")
+        lineas.append("Responde si para confirmar los tres o no para cancelar.")
+
+        return {
+            "eventos": eventos,
+            "propuesta": "\n".join(lineas),
+        }
 
     def _crear_evento(self, usuario_id: UUID, texto: str) -> dict[str, object]:
         """Crea un evento solo cuando la fecha, hora, título y duración son claros."""
@@ -876,7 +1083,8 @@ def _texto_evento(evento: object, zona: object) -> str | None:
     if not isinstance(evento, dict):
         return None
 
-    titulo = evento.get("titulo", "Evento")
+    titulo = str(evento.get("titulo", "Evento"))
+    titulo = titulo[:1].upper() + titulo[1:]
     comienza = _a_zona(evento.get("comienza"), zona)
     termina = _a_zona(evento.get("termina"), zona)
 
@@ -897,7 +1105,8 @@ def _texto_evento_creado(evento: object, zona: object) -> str | None:
     if not isinstance(evento, dict):
         return None
 
-    titulo = evento.get("titulo", "Evento")
+    titulo = str(evento.get("titulo", "Evento"))
+    titulo = titulo[:1].upper() + titulo[1:]
     comienza = _a_zona(evento.get("comienza"), zona)
     termina = _a_zona(evento.get("termina"), zona)
 
@@ -952,3 +1161,88 @@ def _detectar_accion(texto: str) -> dict[str, object] | None:
         }
 
     return None
+
+
+def _detectar_cancelar_recordatorio(texto: str) -> dict[str, object] | None:
+    """Detecta la cancelacion de un recordatorio por su mensaje."""
+
+    coincidencia = re.search(
+        r"\b(?:cancela|cancelar|anula|anular)\s+"
+        r"(?:el\s+)?recordatorio\s+(.+)",
+        texto,
+        re.IGNORECASE,
+    )
+
+    if coincidencia is None:
+        return None
+
+    mensaje = coincidencia.group(1).strip(" \t\n,.;:!?\u00bf\u00a1-")
+
+    return {
+        "herramienta": "recordatorios_cancelar",
+        "argumentos": {"recordatorio_id": None, "mensaje": mensaje},
+        "propuesta": (
+            f"Voy a cancelar el recordatorio '{mensaje}'.\n\n"
+            "Responde si para confirmar o no para cancelar."
+        ),
+    }
+
+
+def _detectar_reprogramacion(
+    texto: str,
+    ahora: datetime,
+) -> dict[str, object] | None:
+    """Detecta el cambio de fecha u hora de un evento existente."""
+
+    coincidencia = re.search(
+        r"\b(?:mueve|mover|reprograma|reprogramar|cambia|cambiar)\s+"
+        r"(?:el\s+)?evento\s+(?P<titulo>.+?)\s+"
+        r"(?:al|para el|el)\s+(?P<resto>.+)$",
+        texto,
+        re.IGNORECASE,
+    )
+
+    if coincidencia is None:
+        return None
+
+    titulo = coincidencia.group("titulo").strip(" \t\n,.;:!?\u00bf\u00a1-")
+    resto = coincidencia.group("resto")
+
+    fecha = resolver_fecha(resto, ahora)
+    if fecha is None:
+        return _preguntar(
+            "¿Qué día quieres para el evento? Indica una fecha que pueda resolver."
+        )
+
+    hora = resolver_hora(resto)
+    if hora is None:
+        return _preguntar("¿A qué hora quieres el evento?")
+
+    duracion = _duracion_explicita(resto)
+    if duracion is None:
+        return _preguntar(
+            "¿Cuánto durará el evento o a qué hora terminará?"
+        )
+
+    comienza = datetime.combine(
+        fecha,
+        hora.hora,
+        tzinfo=ahora.tzinfo,
+    )
+    termina = comienza + duracion
+
+    return {
+        "herramienta": "agenda_reprogramar_evento",
+        "argumentos": {
+            "evento_id": None,
+            "titulo": titulo,
+            "comienza": comienza,
+            "termina": termina,
+        },
+        "propuesta": (
+            f"Voy a mover el evento '{titulo}' al "
+            f"{comienza.strftime('%d/%m/%Y %H:%M')} a "
+            f"{termina.strftime('%H:%M')}.\n\n"
+            "Responde si para confirmar o no para cancelar."
+        ),
+    }
