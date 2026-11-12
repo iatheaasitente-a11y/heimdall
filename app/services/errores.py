@@ -75,6 +75,32 @@ class CambioDeEstadoNoPermitido(ErrorDeServicio):
         self.detalle = detalle
 
 
+class HabitoNoEncontrado(ErrorDeServicio):
+    """No existe el hábito solicitado."""
+
+    def __init__(self, habito_id: UUID) -> None:
+        """Guarda el identificador buscado y construye el mensaje."""
+        super().__init__(f"No existe el hábito {habito_id}.")
+        self.habito_id = habito_id
+
+
+class HabitoInactivo(ErrorDeServicio):
+    """El hábito está desactivado y no admite nuevos registros."""
+
+    def __init__(self, nombre: str) -> None:
+        """Guarda el nombre del hábito y construye el mensaje."""
+        super().__init__(f"El hábito «{nombre}» está desactivado.")
+        self.nombre = nombre
+
+
+class RegistroNoEncontrado(ErrorDeServicio):
+    """No existe el registro de hábito solicitado."""
+
+    def __init__(self, registro_id: UUID) -> None:
+        """Guarda el identificador buscado y construye el mensaje."""
+        super().__init__(f"No existe el registro {registro_id}.")
+        self.registro_id = registro_id
+
 @contextmanager
 def transicion_de_estado() -> Iterator[None]:
     """Convierte ``TransicionNoPermitida`` del dominio en ``CambioDeEstadoNoPermitido``."""
