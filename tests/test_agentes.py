@@ -137,7 +137,10 @@ def test_regla_tiene_prioridad_sobre_motor_llm():
 
 def test_mensaje_no_reconocido_sin_motor_devuelve_none():
     agente = AgentePersonal(_registro_resumen([]))
-    assert agente.procesar(uuid4(), uuid4(), "Hola") is None
+    assert agente.procesar(uuid4(), uuid4(), "Hola") == {
+        "ok": True,
+        "datos": "¡Hola! ¿En qué te ayudo?",
+    }
 
 
 def test_mensaje_no_reconocido_usa_motor_y_ejecuta_herramienta():
@@ -317,9 +320,7 @@ def test_hola_sin_intencion_devuelve_saludo_de_cortesia():
 
     assert resultado == {
         "ok": True,
-        "datos": {
-            "mensaje": "Hola. Puedo ayudarte con agenda, hábitos, objetivos y recordatorios."
-        },
+        "datos": "¡Hola! ¿En qué te ayudo?",
     }
 
 

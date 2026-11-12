@@ -120,7 +120,7 @@ def test_ollama_calentar_carga_el_modelo_con_una_peticion_minima():
         "app.llm.ollama.urlopen",
         return_value=BytesIO(b"{}"),
     ) as urlopen:
-        MotorOllama(modelo=MODELO_PRUEBA).calentar()
+        MotorOllama(modelo=MODELO_PRUEBA, timeout=10).calentar()
     request = urlopen.call_args.args[0]
     payload = json.loads(request.data)
     assert payload["model"] == MODELO_PRUEBA
@@ -245,7 +245,7 @@ def test_timeout_se_puede_configurar_por_entorno(monkeypatch):
 
 
 def test_timeout_normal_sigue_siendo_de_diez_segundos():
-    assert MotorOllama(modelo=MODELO_PRUEBA)._timeout == 10.0
+    assert MotorOllama(modelo=MODELO_PRUEBA, timeout=10)._timeout == 10.0
 
 
 def test_timeout_explicito_prevalece_sobre_el_entorno(monkeypatch):
