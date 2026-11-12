@@ -15,6 +15,13 @@
 
 Fuera de alcance por ahora: FastAPI, Telegram y una fuente real de datos NBA.
 
+## Auditoría de Hugin
+
+Hecha en `docs/auditoria-hugin.md`. No se porta código fuente completo; las
+ideas de fechas, reglas deterministas y evaluación de frases se adaptan en
+fases separadas. Memoria/RAG, persistencia alternativa, avisos operativos,
+copias, sincronización y canales empresariales quedan descartados.
+
 ## Puntos a revisar (por confirmar si son fallos)
 1. `de_usuario` exige `usuario_id`; `Mensaje` y `RegistroHabito` no lo tienen.
 2. RESUELTO: `hay_conflicto` solo compara eventos del mismo usuario.
