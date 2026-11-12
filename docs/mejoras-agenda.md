@@ -10,13 +10,14 @@
 - Recordatorios con fecha y hora explícitas.
 - Cancelar recordatorio con confirmación.
 - Agendado paso a paso: si falta título, día, hora o duración, el agente pregunta de uno en uno.
+- Recordatorio automático al crear cita: al crear un evento se genera un aviso para su inicio.
 
 ## Flujo de agendado actual
 
 1. "Quiero agendar dentista" -> pregunta título si falta.
 2. "mañana" -> pregunta hora.
 3. "a las 10" -> pregunta duración.
-4. "1 hora" -> crea el evento.
+4. "1 hora" -> crea el evento y genera el recordatorio automático.
 5. Si el mensaje ya trae todo, las reglas lo crean de una vez.
 
 ## Roadmap de mejoras
@@ -24,7 +25,7 @@
 | # | Mejora | Estado |
 |---|--------|--------|
 | 1 | Agendar paso a paso | Hecha |
-| 2 | Recordatorio automático al crear cita | Pendiente |
+| 2 | Recordatorio automático al crear cita | Hecha |
 | 3 | Eventos de todo el día | Pendiente |
 | 4 | Repeticiones semanales/mensuales | Pendiente |
 | 5 | Cancelar/reprogramar por título | Pendiente |
@@ -34,4 +35,4 @@
 
 ## Próximo paso recomendado
 
-Mejora 2: recordatorio automático al crear cita.
+Mejora 3: eventos de todo el día.
