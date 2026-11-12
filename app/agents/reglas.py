@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.domain.lenguaje_fechas import (
     FechaHoraResuelta,
+    HoraResuelta,
     resolver_fecha,
     resolver_fecha_hora,
     resolver_hora,
@@ -104,13 +105,33 @@ class ReglasDeterministas:
         self._herramientas = herramientas
         self._hoy_por_usuario = hoy_por_usuario
         self._ahora_por_usuario = ahora_por_usuario
+        self._eventos_pendientes: dict[UUID, dict[str, object]] = {}
 
     def procesar(self, usuario_id: UUID, texto: str) -> dict[str, object] | None:
         """Resuelve una solicitud reconocida o devuelve ``None`` si no hay regla."""
         normalizado = _normalizar(texto)
+
+        pendiente = self._eventos_pendientes.get(usuario_id)
+        if pendiente is not None:
+            if normalizado in {"si", "vale", "confirmo", "confirmar"}:
+                self._eventos_pendientes.pop(usuario_id)
+                return self._herramientas.obtener(
+                    "agenda_crear_evento"
+                ).ejecutar(usuario_id, pendiente)
+            if normalizado in {"no", "cancela", "cancelar"}:
+                self._eventos_pendientes.pop(usuario_id)
+                return {
+                    "ok": True,
+                    "datos": "He cancelado la creacion del evento.",
+                }
+
         respuesta_conversacion = _respuesta_conversacion(normalizado)
         if respuesta_conversacion is not None:
             return respuesta_conversacion
+        rango = _rango_de_periodo(normalizado, self._hoy(usuario_id))
+        if rango is not None:
+            return self._consultar_periodo(usuario_id, rango)
+
         if _es_resumen_de_hoy(normalizado):
             return self._herramientas.obtener("resumen_del_dia").ejecutar(
                 usuario_id,
@@ -127,6 +148,41 @@ class ReglasDeterministas:
         if _es_consulta_habito(normalizado):
             return self._consultar_habito(usuario_id, normalizado)
         return None
+
+    def _consultar_periodo(
+        self,
+        usuario_id: UUID,
+        rango: tuple[date, date, str],
+    ) -> dict[str, object]:
+        """Lista los eventos activos dentro de un rango de fechas."""
+
+        inicio, fin, etiqueta = rango
+        eventos = []
+        dia = inicio
+
+        while dia <= fin:
+            resultado = self._herramientas.obtener(
+                "agenda_eventos_del_dia"
+            ).ejecutar(usuario_id, {"dia": dia})
+            if resultado.get("ok") is True:
+                eventos.extend(resultado.get("datos") or [])
+            dia += timedelta(days=1)
+
+        if not eventos:
+            return {
+                "ok": True,
+                "datos": f"No tienes eventos {etiqueta}.",
+            }
+
+        lineas = [f"Tienes {len(eventos)} eventos {etiqueta}:"]
+        for evento in eventos:
+            if not isinstance(evento, dict):
+                continue
+            titulo = evento.get("titulo", "Evento")
+            comienza = evento.get("comienza", "")
+            lineas.append(f"\u2022 {titulo} \u2014 {comienza}")
+
+        return {"ok": True, "datos": "\n".join(lineas)}
 
     def _crear_evento(self, usuario_id: UUID, texto: str) -> dict[str, object]:
         """Crea un evento solo cuando la fecha, hora, título y duración son claros."""
@@ -150,14 +206,26 @@ class ReglasDeterministas:
             fecha_hora.hora,
             tzinfo=ahora.tzinfo,
         )
-        return self._herramientas.obtener("agenda_crear_evento").ejecutar(
-            usuario_id,
-            {
-                "titulo": titulo,
-                "comienza": comienza,
-                "termina": comienza + duracion,
-            },
+        argumentos = {
+            "titulo": titulo,
+            "comienza": comienza,
+            "termina": comienza + duracion,
+        }
+        self._eventos_pendientes[usuario_id] = argumentos
+
+        if duracion.total_seconds() % 3600 == 0:
+            duracion_texto = f"{int(duracion.total_seconds() // 3600)} hora(s)"
+        else:
+            duracion_texto = f"{int(duracion.total_seconds() // 60)} minutos"
+
+        propuesta = (
+            "Voy a crear este evento:\n"
+            f"\u2022 {titulo}\n"
+            f"\u2022 {comienza.strftime('%d/%m/%Y %H:%M')}\n"
+            f"\u2022 Duracion: {duracion_texto}\n\n"
+            "Responde si para confirmar o no para cancelar."
         )
+        return {"ok": True, "datos": propuesta}
 
     def _crear_recordatorio(self, usuario_id: UUID, texto: str) -> dict[str, object]:
         """Programa un recordatorio cuando su mensaje y momento están explícitos."""
@@ -293,9 +361,12 @@ class ReglasDeterministas:
         if hora is None:
             return _preguntar("¿A qué hora quieres que ocurra?")
         if not hora.acotada:
-            return _preguntar(
-                "¿Te refieres a la mañana, la tarde o la noche?"
-            )
+            if hora.hora.hour < 12:
+                hora = HoraResuelta(hora.hora, True, "mañana")
+            else:
+                return _preguntar(
+                    "¿Te refieres a la tarde o a la noche?"
+                )
         resuelta = resolver_fecha_hora(texto, ahora)
         if resuelta is None or resuelta.hora is None:
             return _preguntar("¿Qué fecha y hora futura quieres indicar?")
@@ -523,5 +594,50 @@ def _respuesta_conversacion(texto: str) -> dict[str, object] | None:
 
     if re.search(r"\b(adios|hasta luego|chao)\b", texto):
         return {"ok": True, "datos": "¡Hasta luego!"}
+
+    return None
+
+
+def _rango_de_periodo(texto: str, hoy: date) -> tuple[date, date, str] | None:
+    """Reconoce rangos frecuentes: semana, mes y fin de semana."""
+
+    if re.search(r"\b(?:esta semana|semana actual)\b", texto, re.IGNORECASE):
+        inicio = hoy - timedelta(days=hoy.weekday())
+        return inicio, inicio + timedelta(days=6), "esta semana"
+
+    if re.search(
+        r"\b(?:proxima semana|la proxima semana|siguiente semana)\b",
+        texto,
+        re.IGNORECASE,
+    ):
+        inicio = hoy + timedelta(days=7 - hoy.weekday())
+        return inicio, inicio + timedelta(days=6), "la proxima semana"
+
+    if re.search(r"\b(?:este mes|mes actual)\b", texto, re.IGNORECASE):
+        inicio = hoy.replace(day=1)
+        if hoy.month == 12:
+            siguiente = hoy.replace(year=hoy.year + 1, month=1, day=1)
+        else:
+            siguiente = hoy.replace(month=hoy.month + 1, day=1)
+        return inicio, siguiente - timedelta(days=1), "este mes"
+
+    if re.search(
+        r"\b(?:mes que viene|proximo mes|siguiente mes)\b",
+        texto,
+        re.IGNORECASE,
+    ):
+        if hoy.month == 12:
+            inicio = hoy.replace(year=hoy.year + 1, month=1, day=1)
+        else:
+            inicio = hoy.replace(month=hoy.month + 1, day=1)
+        if inicio.month == 12:
+            siguiente = inicio.replace(year=inicio.year + 1, month=1, day=1)
+        else:
+            siguiente = inicio.replace(month=inicio.month + 1, day=1)
+        return inicio, siguiente - timedelta(days=1), "el proximo mes"
+
+    if re.search(r"\bfin de semana\b", texto, re.IGNORECASE):
+        sabado = hoy + timedelta(days=(5 - hoy.weekday()) % 7)
+        return sabado, sabado + timedelta(days=1), "este fin de semana"
 
     return None
