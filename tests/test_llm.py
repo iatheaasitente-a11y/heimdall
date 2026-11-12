@@ -1,4 +1,5 @@
 import json
+import logging
 from io import BytesIO
 from types import SimpleNamespace
 from urllib.error import URLError
@@ -367,10 +368,17 @@ def test_motor_nube_es_un_esqueleto_sin_red_ni_clave():
         MotorNube().interpretar([], [])
 
 
-def test_frenos_descartan_respuestas_de_baja_confianza():
+def test_frenos_descartan_respuestas_de_baja_confianza(caplog):
     motor = MotorFalso([RespuestaEstructurada("intencion", {}, 0.4)])
     frenos = FrenosLLM(motor, confianza_minima=0.65)
-    assert frenos.consultar(uuid4(), [], []) is None
+    with caplog.at_level(logging.WARNING, logger="app.llm.frenos"):
+        assert frenos.consultar(
+            uuid4(),
+            [{"role": "user", "content": "contenido_privado"}],
+            [],
+        ) is None
+    assert "confianza insuficiente" in caplog.text.casefold()
+    assert "contenido_privado" not in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -423,6 +431,18 @@ def test_frenos_aplican_limite_por_conversacion():
     assert frenos.consultar(conversacion, [], []) is None
 
 
+def test_frenos_registran_el_limite_de_consultas(caplog):
+    respuesta = RespuestaEstructurada("intencion", {}, 0.9)
+    frenos = FrenosLLM(MotorFalso([respuesta]), max_consultas=1)
+    conversacion = uuid4()
+    frenos.consultar(conversacion, [], [])
+
+    with caplog.at_level(logging.WARNING, logger="app.llm.frenos"):
+        assert frenos.consultar(conversacion, [], []) is None
+
+    assert "límite de consultas alcanzado" in caplog.text.casefold()
+
+
 def test_frenos_mantienen_cuotas_separadas_por_conversacion():
     respuesta = RespuestaEstructurada("intencion", {}, 0.9)
     motor = MotorFalso([respuesta, respuesta])
@@ -432,16 +452,42 @@ def test_frenos_mantienen_cuotas_separadas_por_conversacion():
 
 
 @pytest.mark.parametrize(
-    "error",
-    [OSError("sin servicio"), ErrorRespuestaLLM("respuesta inválida")],
+    ("error", "motivo"),
+    [
+        (OSError("detalle privado"), "OSError"),
+        (ErrorRespuestaLLM("detalle privado"), "ErrorRespuestaLLM"),
+    ],
 )
-def test_frenos_descartan_errores_del_motor_y_consumen_la_cuota(error):
+def test_frenos_registran_errores_del_motor_sin_detalles(error, motivo, caplog):
     motor = MotorQueFalla(error)
     frenos = FrenosLLM(motor, max_consultas=1)
     conversacion_id = uuid4()
-    assert frenos.consultar(conversacion_id, [], []) is None
+    with caplog.at_level(logging.WARNING, logger="app.llm.frenos"):
+        assert frenos.consultar(
+            conversacion_id,
+            [{"role": "user", "content": "contenido_privado"}],
+            [],
+        ) is None
     assert frenos.consultar(conversacion_id, [], []) is None
     assert motor.llamadas == 1
+    assert motivo in caplog.text
+    assert "detalle privado" not in caplog.text
+    assert "contenido_privado" not in caplog.text
+
+
+def test_frenos_registran_respuesta_de_tipo_incorrecto(monkeypatch, caplog):
+    motor = MotorFalso()
+    monkeypatch.setattr(
+        motor,
+        "interpretar",
+        lambda _historial, _herramientas: SimpleNamespace(confianza=0.9),
+    )
+    frenos = FrenosLLM(motor)
+
+    with caplog.at_level(logging.WARNING, logger="app.llm.frenos"):
+        assert frenos.consultar(uuid4(), [], []) is None
+
+    assert "no es RespuestaEstructurada" in caplog.text
 
 
 @pytest.mark.parametrize(
