@@ -6,8 +6,8 @@
 
 - Consulta de agenda por lenguaje natural.
 - Respuesta natural del resumen diario en Telegram.
-- Conversación básica sin depender del LLM.
-- Diagnóstico de Ollama sin exponer datos sensibles.
+- Conversacion basica sin depender del LLM.
+- Diagnostico de Ollama sin exponer datos sensibles.
 - Timeout ampliado para el arranque del modelo.
 - Suite de pruebas en verde: 780 tests.
 
@@ -18,14 +18,14 @@ Objetivo: permitir crear una cita desde Telegram mediante lenguaje natural.
 Ejemplo:
 
 ```text
-crea un evento dentista mañana a las 10 durante 1 hora
+crea un evento dentista manana a las 10 durante 1 hora
 ```
 
 Comportamiento esperado:
 
-1. Detectar la intención de crear un evento.
-2. Extraer título, fecha, hora y duración.
-3. Pedir únicamente los datos que falten.
+1. Detectar la intencion de crear un evento.
+2. Extraer titulo, fecha, hora y duracion.
+3. Pedir unicamente los datos que falten.
 4. Mostrar una propuesta clara antes de guardar.
-5. Crear el evento solo tras confirmación del usuario.
-6. Confirmar la creación con fecha y hora en español.
+5. Crear el evento solo tras confirmacion del usuario.
+6. Confirmar la creacion con fecha y hora en espanol.
