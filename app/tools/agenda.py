@@ -2,7 +2,14 @@
 
 from app.services.agenda import ServicioAgenda
 from app.tools.base import Herramienta
-from app.tools.esquemas import CrearEvento, Dia, IdentificadorEvento, ReprogramarEvento
+from app.tools.esquemas import (
+    ConsultaHuecos,
+    CrearEvento,
+    Dia,
+    IdentificadorEvento,
+    Momento,
+    ReprogramarEvento,
+)
 
 
 def herramientas_agenda(servicio: ServicioAgenda) -> list[Herramienta]:
@@ -52,6 +59,36 @@ def herramientas_agenda(servicio: ServicioAgenda) -> list[Herramienta]:
             "Cambia el inicio y fin de un evento activo.",
             ReprogramarEvento,
             reprogramar,
+        ),
+        Herramienta(
+            "agenda_proximo_evento",
+            "Devuelve el siguiente evento activo de la agenda.",
+            Momento,
+            lambda usuario_id, args: servicio.proximo_evento(
+                usuario_id,
+                args["ahora"],
+            ),
+        ),
+        Herramienta(
+            "agenda_huecos_libres",
+            "Devuelve los huecos libres de una franja.",
+            ConsultaHuecos,
+            lambda usuario_id, args: servicio.huecos_libres(
+                usuario_id,
+                args["dia"],
+                args["desde"],
+                args["hasta"],
+                args["minutos"],
+            ),
+        ),
+        Herramienta(
+            "agenda_consultar_evento",
+            "Devuelve los datos de un evento por identificador o titulo.",
+            IdentificadorEvento,
+            lambda usuario_id, args: servicio.obtener_evento(
+                usuario_id,
+                evento_id(usuario_id, args),
+            ),
         ),
         Herramienta(
             "agenda_eventos_del_dia",

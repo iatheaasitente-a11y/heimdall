@@ -54,7 +54,7 @@ def test_reprograma_evento_con_confirmacion():
     assert resultado["datos"]["termina"] == "2026-11-13T17:00:00+01:00"
 
 
-def test_pide_duracion_para_reprogramar():
+def test_reprograma_conservando_la_duracion_original():
     aplicacion, usuario = _entorno()
 
     aplicacion.herramientas.obtener("agenda_crear_evento").ejecutar(
@@ -66,14 +66,43 @@ def test_pide_duracion_para_reprogramar():
         },
     )
 
-    resultado = aplicacion.router.procesar(
+    propuesta = aplicacion.router.procesar(
         usuario.id,
         uuid4(),
         "mueve el evento Gimnasio al viernes a las 16",
     )
 
-    assert resultado["ok"] is False
-    assert "¿Cuánto durará" in resultado["error"]
+    assert propuesta["ok"] is True
+    assert "13/11/2026 16:00 a 17:00" in propuesta["datos"]
+
+    resultado = aplicacion.router.procesar(usuario.id, uuid4(), "si")
+
+    assert resultado["ok"] is True
+    assert resultado["datos"]["comienza"] == "2026-11-13T16:00:00+01:00"
+    assert resultado["datos"]["termina"] == "2026-11-13T17:00:00+01:00"
+
+
+def test_consulta_evento_por_titulo():
+    aplicacion, usuario = _entorno()
+
+    aplicacion.herramientas.obtener("agenda_crear_evento").ejecutar(
+        usuario.id,
+        {
+            "titulo": "Gimnasio",
+            "comienza": "2026-11-16T10:00:00+01:00",
+            "termina": "2026-11-16T11:00:00+01:00",
+        },
+    )
+
+    resultado = aplicacion.herramientas.obtener(
+        "agenda_consultar_evento"
+    ).ejecutar(
+        usuario.id,
+        {"evento_id": None, "titulo": "Gimnasio"},
+    )
+
+    assert resultado["ok"] is True
+    assert resultado["datos"]["titulo"] == "Gimnasio"
 
 
 def test_cancela_recordatorio_con_confirmacion():

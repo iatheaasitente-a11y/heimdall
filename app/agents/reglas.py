@@ -234,6 +234,8 @@ class ReglasDeterministas:
         reprogramacion = _detectar_reprogramacion(
             normalizado,
             self._ahora(usuario_id),
+            self._herramientas,
+            usuario_id,
         )
         if reprogramacion is not None:
             if reprogramacion.get("ok") is False:
@@ -1279,6 +1281,8 @@ def _detectar_cancelar_recordatorio(texto: str) -> dict[str, object] | None:
 def _detectar_reprogramacion(
     texto: str,
     ahora: datetime,
+    herramientas: object,
+    usuario_id: object,
 ) -> dict[str, object] | None:
     """Detecta el cambio de fecha u hora de un evento existente."""
 
@@ -1307,10 +1311,31 @@ def _detectar_reprogramacion(
         return _preguntar("¿A qué hora quieres el evento?")
 
     duracion = _duracion_explicita(resto)
+
     if duracion is None:
-        return _preguntar(
-            "¿Cuánto durará el evento o a qué hora terminará?"
-        )
+        try:
+            original = herramientas.obtener(
+                "agenda_consultar_evento"
+            ).ejecutar(
+                usuario_id,
+                {"evento_id": None, "titulo": titulo},
+            )
+        except KeyError:
+            original = None
+
+        if (
+            original is None
+            or original.get("ok") is not True
+            or not isinstance(original.get("datos"), dict)
+        ):
+            return _preguntar(
+                "¿Cuánto durará el evento o a qué hora terminará?"
+            )
+
+        datos = original["datos"]
+        comienza_original = datetime.fromisoformat(datos["comienza"])
+        termina_original = datetime.fromisoformat(datos["termina"])
+        duracion = termina_original - comienza_original
 
     comienza = datetime.combine(
         fecha,
