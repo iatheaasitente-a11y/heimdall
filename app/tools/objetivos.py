@@ -8,7 +8,6 @@ from app.tools.esquemas import (
     CrearObjetivo,
     ListarObjetivos,
 )
-from app.tools.resolucion import resolver_por_nombre
 
 
 def herramientas_objetivos(servicio: ServicioObjetivos) -> list[Herramienta]:
@@ -17,12 +16,7 @@ def herramientas_objetivos(servicio: ServicioObjetivos) -> list[Herramienta]:
     def objetivo_id(usuario_id, argumentos):
         if argumentos["objetivo_id"] is not None:
             return argumentos["objetivo_id"]
-        return resolver_por_nombre(
-            argumentos["nombre"],
-            servicio.listar_objetivos(usuario_id),
-            lambda objetivo: objetivo.nombre,
-            "objetivos",
-        )
+        return servicio.resolver_objetivo_id(usuario_id, argumentos["nombre"])
 
     def actualizar(usuario_id, argumentos):
         return servicio.actualizar_progreso(

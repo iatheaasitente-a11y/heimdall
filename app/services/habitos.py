@@ -6,7 +6,6 @@ from uuid import UUID
 
 from app.domain.habit import FrecuenciaHabito, Habito, RegistroHabito
 from app.domain.relations import racha_diaria, total_del_dia
-from app.domain.user import Usuario
 from app.repositories.interfaces import (
     RepositorioHabitos,
     RepositorioRegistrosHabito,
@@ -17,8 +16,10 @@ from app.services.errores import (
     HabitoInactivo,
     HabitoNoEncontrado,
     RegistroNoEncontrado,
-    UsuarioNoEncontrado,
+    exigir_usuario,
+    obtener_entidad_de_usuario,
 )
+from app.services.resolucion import resolver_por_nombre
 
 
 class ServicioHabitos:
@@ -63,7 +64,7 @@ class ServicioHabitos:
             ValueError: Si la frecuencia no existe o ``objetivo`` no es mayor que cero.
             pydantic.ValidationError: Si el nombre está vacío.
         """
-        self._exigir_usuario(usuario_id)
+        exigir_usuario(self._usuarios.obtener, usuario_id)
         habito = Habito(
             usuario_id,
             nombre.strip(),
@@ -90,8 +91,14 @@ class ServicioHabitos:
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
         """
-        self._exigir_usuario(usuario_id)
+        exigir_usuario(self._usuarios.obtener, usuario_id)
         return self._habitos.listar_por_usuario(usuario_id, solo_activos=solo_activos)
+
+    def resolver_habito_id(self, usuario_id: UUID, nombre: str) -> UUID:
+        """Resuelve el nombre exacto de un hábito propio a su identificador."""
+        return resolver_por_nombre(
+            nombre, self.listar_habitos(usuario_id), lambda habito: habito.nombre, "hábitos"
+        )
 
     def desactivar_habito(self, usuario_id: UUID, habito_id: UUID) -> Habito:
         """Desactiva un hábito del usuario y guarda el cambio. Conserva sus registros.
@@ -129,7 +136,7 @@ class ServicioHabitos:
         habito = self._obtener(usuario_id, habito_id)
         if not habito.activo:
             raise HabitoInactivo(habito.nombre)
-        zona = self._exigir_usuario(usuario_id).zona()
+        zona = exigir_usuario(self._usuarios.obtener, usuario_id).zona()
         registro = RegistroHabito(
             habito.id,
             valor,
@@ -177,7 +184,7 @@ class ServicioHabitos:
             HabitoNoEncontrado: Si el hábito no existe o es de otro usuario.
         """
         habito = self._obtener(usuario_id, habito_id)
-        zona = self._exigir_usuario(usuario_id).zona()
+        zona = exigir_usuario(self._usuarios.obtener, usuario_id).zona()
         dia = dia if dia is not None else self._reloj().astimezone(zona).date()
         return total_del_dia(habito, self._registros_del_dia(habito, dia, zona), dia, zona)
 
@@ -194,27 +201,18 @@ class ServicioHabitos:
         habito = self._obtener(usuario_id, habito_id)
         if habito.frecuencia != FrecuenciaHabito.DIARIA:
             raise ValueError("La racha solo se calcula para hábitos de frecuencia diaria.")
-        zona = self._exigir_usuario(usuario_id).zona()
+        zona = exigir_usuario(self._usuarios.obtener, usuario_id).zona()
         hoy = hoy if hoy is not None else self._reloj().astimezone(zona).date()
         registros = self._registros.listar_por_habito(habito.id)
         return racha_diaria(habito, registros, hoy, zona)
+
+    def _obtener(self, usuario_id: UUID, habito_id: UUID) -> Habito:
+        return obtener_entidad_de_usuario(
+            self._habitos.obtener, usuario_id, habito_id, HabitoNoEncontrado
+        )
 
     def _registros_del_dia(self, habito: Habito, dia: date, zona) -> list[RegistroHabito]:
         """Devuelve los registros del hábito cuyo día, en esa zona, es ``dia``."""
         desde = datetime.combine(dia, time.min, tzinfo=zona)
         hasta = datetime.combine(dia + timedelta(days=1), time.min, tzinfo=zona)
         return self._registros.listar_por_rango(habito.id, desde, hasta)
-
-    def _obtener(self, usuario_id: UUID, habito_id: UUID) -> Habito:
-        """Devuelve un hábito del usuario o lanza ``HabitoNoEncontrado``."""
-        habito = self._habitos.obtener(habito_id)
-        if habito is None or habito.usuario_id != usuario_id:
-            raise HabitoNoEncontrado(habito_id)
-        return habito
-
-    def _exigir_usuario(self, usuario_id: UUID) -> Usuario:
-        """Devuelve el usuario o lanza ``UsuarioNoEncontrado``."""
-        usuario = self._usuarios.obtener(usuario_id)
-        if usuario is None:
-            raise UsuarioNoEncontrado(usuario_id)
-        return usuario

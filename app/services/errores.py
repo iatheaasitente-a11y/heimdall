@@ -1,15 +1,24 @@
 """Errores previstos al usar los servicios de aplicación."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import date, datetime
+from typing import Protocol, TypeVar
 from uuid import UUID
 
 from app.domain.errores import TransicionNoPermitida
+from app.domain.user import Usuario
 
 
 class ErrorDeServicio(Exception):
     """Clase base de los errores previstos de los servicios."""
+
+
+class _EntidadDeUsuario(Protocol):
+    usuario_id: UUID
+
+
+TEntidad = TypeVar("TEntidad", bound=_EntidadDeUsuario)
 
 
 class UsuarioNoEncontrado(ErrorDeServicio):
@@ -145,6 +154,42 @@ class ConversacionCerrada(ErrorDeServicio):
         """Guarda el título de la conversación y construye el mensaje."""
         super().__init__(f"La conversación «{titulo}» está cerrada.")
         self.titulo = titulo
+
+
+class ErrorResolucionNombre(ErrorDeServicio, ValueError):
+    """Un nombre exacto no identifica de forma única una entidad del usuario."""
+
+    def __init__(
+        self,
+        mensaje: str,
+        candidatos: list[dict[str, str]],
+    ) -> None:
+        """Guarda el mensaje y los candidatos que pueden aclarar la selección."""
+        super().__init__(mensaje)
+        self.candidatos = candidatos
+
+
+def exigir_usuario(
+    obtener: Callable[[UUID], Usuario | None], usuario_id: UUID
+) -> Usuario:
+    """Devuelve el usuario o lanza ``UsuarioNoEncontrado``."""
+    usuario = obtener(usuario_id)
+    if usuario is None:
+        raise UsuarioNoEncontrado(usuario_id)
+    return usuario
+
+
+def obtener_entidad_de_usuario(
+    obtener: Callable[[UUID], TEntidad | None],
+    usuario_id: UUID,
+    entidad_id: UUID,
+    error_no_encontrado: Callable[[UUID], ErrorDeServicio],
+) -> TEntidad:
+    """Devuelve una entidad propia o lanza el error indicado como no encontrada."""
+    entidad = obtener(entidad_id)
+    if entidad is None or entidad.usuario_id != usuario_id:
+        raise error_no_encontrado(entidad_id)
+    return entidad
 
 
 @contextmanager

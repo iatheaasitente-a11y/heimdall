@@ -5,18 +5,19 @@ from uuid import UUID
 
 from app.domain.reminder import EstadoRecordatorio, Recordatorio
 from app.domain.schedule import Evento, Horario
-from app.domain.user import Usuario
 from app.repositories.interfaces import (
     RepositorioEventos,
     RepositorioRecordatorios,
     RepositorioUsuarios,
 )
 from app.schemas.schedule import EventoSchema
+from app.services.resolucion import resolver_por_nombre
 from app.services.errores import (
     ConflictoDeHorario,
     EventoNoActivo,
     EventoNoEncontrado,
-    UsuarioNoEncontrado,
+    exigir_usuario,
+    obtener_entidad_de_usuario,
     transicion_de_estado,
 )
 
@@ -66,7 +67,7 @@ class ServicioAgenda:
                 llevan zona horaria.
             ConflictoDeHorario: Si se solapa con otro evento activo.
         """
-        self._exigir_usuario(usuario_id)
+        exigir_usuario(self._usuarios.obtener, usuario_id)
         evento = Evento(
             usuario_id,
             titulo.strip(),
@@ -86,10 +87,9 @@ class ServicioAgenda:
         Raises:
             EventoNoEncontrado: Si no existe o pertenece a otro usuario.
         """
-        evento = self._eventos.obtener(evento_id)
-        if evento is None or evento.usuario_id != usuario_id:
-            raise EventoNoEncontrado(evento_id)
-        return evento
+        return obtener_entidad_de_usuario(
+            self._eventos.obtener, usuario_id, evento_id, EventoNoEncontrado
+        )
 
     def cancelar_evento(self, usuario_id: UUID, evento_id: UUID) -> Evento:
         """Cancela el evento, cancela sus recordatorios pendientes y guarda el cambio.
@@ -166,7 +166,7 @@ class ServicioAgenda:
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
         """
-        usuario = self._exigir_usuario(usuario_id)
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
         return self._eventos.listar_activos_del_dia(usuario_id, dia, usuario.zona())
 
     def listar_eventos(self, usuario_id: UUID) -> list[Evento]:
@@ -175,8 +175,14 @@ class ServicioAgenda:
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
         """
-        self._exigir_usuario(usuario_id)
+        exigir_usuario(self._usuarios.obtener, usuario_id)
         return self._eventos.listar_por_usuario(usuario_id)
+
+    def resolver_evento_id(self, usuario_id: UUID, titulo: str) -> UUID:
+        """Resuelve el título exacto de un evento propio a su identificador."""
+        return resolver_por_nombre(
+            titulo, self.listar_eventos(usuario_id), lambda evento: evento.titulo, "eventos"
+        )
 
     def celdas_del_dia(
         self, usuario_id: UUID, dia: date, minutos: int = 15
@@ -188,16 +194,69 @@ class ServicioAgenda:
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
         """
-        usuario = self._exigir_usuario(usuario_id)
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
         horario = Horario(self._eventos.listar_por_usuario(usuario_id))
         return horario.celdas_del_dia(dia, usuario.zona(), minutos)
 
-    def _exigir_usuario(self, usuario_id: UUID) -> Usuario:
-        """Devuelve el usuario o lanza ``UsuarioNoEncontrado``."""
-        usuario = self._usuarios.obtener(usuario_id)
-        if usuario is None:
-            raise UsuarioNoEncontrado(usuario_id)
-        return usuario
+    def proximo_evento(
+        self,
+        usuario_id: UUID,
+        ahora: datetime,
+    ) -> Evento | None:
+        """Devuelve el siguiente evento activo que aun no ha terminado."""
+
+        exigir_usuario(self._usuarios.obtener, usuario_id)
+        eventos = [
+            evento
+            for evento in self._eventos.listar_por_usuario(usuario_id)
+            if evento.esta_activo() and evento.termina > ahora
+        ]
+        eventos.sort(key=lambda evento: evento.comienza)
+        return eventos[0] if eventos else None
+
+    def huecos_libres(
+        self,
+        usuario_id: UUID,
+        dia: date,
+        desde: datetime,
+        hasta: datetime,
+        minutos: int = 30,
+    ) -> list[dict[str, str]]:
+        """Devuelve los huecos libres de al menos ``minutos`` en una franja."""
+
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
+        eventos = sorted(
+            self._eventos.listar_activos_del_dia(
+                usuario_id,
+                dia,
+                usuario.zona(),
+            ),
+            key=lambda evento: evento.comienza,
+        )
+
+        huecos: list[tuple[datetime, datetime]] = []
+        cursor = desde
+
+        for evento in eventos:
+            if evento.termina <= desde or evento.comienza >= hasta:
+                continue
+
+            if evento.comienza > cursor:
+                huecos.append((cursor, min(evento.comienza, hasta)))
+
+            cursor = max(cursor, evento.termina)
+
+        if cursor < hasta:
+            huecos.append((cursor, hasta))
+
+        return [
+            {
+                "comienza": inicio.isoformat(),
+                "termina": fin.isoformat(),
+            }
+            for inicio, fin in huecos
+            if fin - inicio >= timedelta(minutes=minutos)
+        ]
 
     def _exigir_sin_conflicto(self, evento: Evento) -> None:
         """Lanza ``ConflictoDeHorario`` si un evento activo choca con otro."""

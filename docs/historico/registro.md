@@ -5,6 +5,7 @@ Se añade con `scripts\registrar.ps1` y se enlaza desde cada pull request.
 
 | Fecha | Tipo | Qué se hizo | PR |
 |---|---|---|---|
+| 2026-11-12 | docs | Auditoría de duplicación: centralización de validaciones y resolución en servicios | - |
 | 2026-11-12 | feat | Servicio de objetivos: estados cerrados, progreso, pausa y consulta de vencidos | - |
 | 2026-11-12 | feat | Servicio de hábitos: crear, registrar progreso, progreso del día y racha | #6 |
 | 2026-11-12 | infra | Confirmado Ollama con llama3.2:3b al 100% en GPU por Vulkan (CUDA desactivado) | #4 |

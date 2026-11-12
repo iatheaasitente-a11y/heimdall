@@ -13,3 +13,9 @@ tmp/
 # Bases de datos locales
 data/*.sqlite*
 data/*.db*
+
+# Datos y ejecución local
+heimdall.db
+heimdall.db-journal
+arrancar_telegram.py
+

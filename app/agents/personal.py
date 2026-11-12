@@ -8,6 +8,7 @@ from unicodedata import combining, normalize
 from uuid import UUID
 
 from app.agents.base import AgenteBase
+from app.agents.agenda_paso_a_paso import AgendaPasoAPaso
 from app.agents.reglas import ReglasDeterministas
 from app.llm.frenos import FrenosLLM
 from app.llm.interfaz import MotorLLM
@@ -53,6 +54,7 @@ class AgentePersonal(AgenteBase):
             if hoy_por_usuario is not None
             else _hoy_local
         )
+        self._agenda_paso_a_paso = AgendaPasoAPaso(crear_evento=self._crear_evento_paso_a_paso)
         self._reglas = ReglasDeterministas(
             herramientas,
             self._hoy_por_usuario,
@@ -98,8 +100,24 @@ class AgentePersonal(AgenteBase):
             if pendiente is not None:
                 return _conservar_pendiente(resultado_regla, pendiente)
             return resultado_regla
+        resultado_agenda = self._agenda_paso_a_paso.procesar(
+            usuario_id, conversacion_id, texto, historial
+        )
+        if resultado_agenda is not None:
+            return resultado_agenda
         if self._frenos is None:
             return None
+
+        if pendiente is None and _es_saludo_o_ayuda(texto):
+            return {
+                "ok": True,
+                "datos": {
+                    "mensaje": (
+                        "Hola. Puedo ayudarte con agenda, hábitos, "
+                        "objetivos y recordatorios."
+                    )
+                },
+            }
 
         historial_motor = _ultimos_cuatro_turnos(historial)
         esperando = _esperando(historial_motor)
@@ -117,7 +135,14 @@ class AgentePersonal(AgenteBase):
             definiciones,
         )
         if respuesta is None:
-            return _repetir_confirmacion(pendiente) if pendiente is not None else None
+            if pendiente is not None:
+                return _repetir_confirmacion(pendiente)
+            return {
+                "ok": True,
+                "datos": {
+                    "mensaje": "Hola. Puedo ayudarte con agenda, hábitos, objetivos y recordatorios."
+                },
+            }
         try:
             herramienta = self._herramientas.obtener(respuesta.intencion)
         except KeyError:
@@ -137,6 +162,13 @@ class AgentePersonal(AgenteBase):
         resultado = herramienta.ejecutar(usuario_id, respuesta.campos)
         return resultado
 
+
+    def _crear_evento_paso_a_paso(
+        self, usuario_id: UUID, datos: dict[str, str]
+    ) -> dict[str, object]:
+        """Delega en la herramienta de crear evento."""
+        herramienta = self._herramientas.obtener("agenda_crear_evento")
+        return herramienta.ejecutar(usuario_id, datos)
 
 def _hoy_local(usuario_id: UUID) -> date:
     """Devuelve la fecha local del proceso si no se inyecta una zona de usuario."""
@@ -441,3 +473,29 @@ def _ramas_esquema(esquema: Mapping[str, object]) -> list[Mapping[str, object]]:
                 for rama in _ramas_esquema(subesquema)
             )
     return ramas
+
+
+def _es_saludo_o_ayuda(texto: str) -> bool:
+    """Reconoce saludos y peticiones de ayuda antes de consultar el LLM."""
+    normalizado = normalize("NFKD", texto.casefold())
+    normalizado = "".join(
+        caracter for caracter in normalizado if not combining(caracter)
+    )
+    palabras = " ".join(
+        "".join(
+            caracter
+            for caracter in normalizado
+            if caracter.isalnum() or caracter.isspace()
+        ).split()
+    )
+    return palabras in {
+        "hola",
+        "buenas",
+        "buenos dias",
+        "buenas tardes",
+        "buenas noches",
+        "ayuda",
+        "help",
+        "que puedes hacer",
+        "que puedes hacer?",
+    }

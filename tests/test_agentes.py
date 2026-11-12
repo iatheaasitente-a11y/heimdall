@@ -137,7 +137,10 @@ def test_regla_tiene_prioridad_sobre_motor_llm():
 
 def test_mensaje_no_reconocido_sin_motor_devuelve_none():
     agente = AgentePersonal(_registro_resumen([]))
-    assert agente.procesar(uuid4(), uuid4(), "Hola") is None
+    assert agente.procesar(uuid4(), uuid4(), "Hola") == {
+        "ok": True,
+        "datos": "¡Hola! ¿En qué te ayudo?",
+    }
 
 
 def test_mensaje_no_reconocido_usa_motor_y_ejecuta_herramienta():
@@ -283,7 +286,7 @@ def test_agente_pasa_la_pregunta_pendiente_y_los_ultimos_cuatro_turnos():
     assert llamadas == [(usuario_id, {"dia": date(2026, 11, 12)})]
 
 
-def test_confianza_baja_o_cuota_agotada_no_ejecuta_herramienta():
+def test_cortesia_si_confianza_baja_o_cuota_agotada():
     llamadas = []
     respuesta = RespuestaEstructurada(
         "resumen_del_dia",
@@ -294,10 +297,61 @@ def test_confianza_baja_o_cuota_agotada_no_ejecuta_herramienta():
     agente = AgentePersonal(_registro_resumen(llamadas), motor)
     usuario_id = uuid4()
     conversacion_id = uuid4()
-    assert agente.procesar(usuario_id, conversacion_id, "resumen") is None
-    assert agente.procesar(usuario_id, conversacion_id, "resumen") is None
-    assert agente.procesar(usuario_id, conversacion_id, "resumen") is None
-    assert agente.procesar(usuario_id, conversacion_id, "resumen") is None
+    cortesia = {
+        "ok": True,
+        "datos": {
+            "mensaje": "Hola. Puedo ayudarte con agenda, hábitos, objetivos y recordatorios."
+        },
+    }
+    assert agente.procesar(usuario_id, conversacion_id, "resumen") == cortesia
+    assert agente.procesar(usuario_id, conversacion_id, "resumen") == cortesia
+    assert agente.procesar(usuario_id, conversacion_id, "resumen") == cortesia
+    assert agente.procesar(usuario_id, conversacion_id, "resumen") == cortesia
+    assert llamadas == []
+
+
+def test_hola_sin_intencion_devuelve_saludo_de_cortesia():
+    agente = AgentePersonal(
+        _registro_resumen([]),
+        MotorFalso([RespuestaEstructurada("resumen_del_dia", {}, 0.2)]),
+    )
+
+    resultado = agente.procesar(uuid4(), uuid4(), "hola")
+
+    assert resultado == {
+        "ok": True,
+        "datos": "¡Hola! ¿En qué te ayudo?",
+    }
+
+
+def test_sin_intencion_repite_confirmacion_pendiente_en_vez_de_saludar():
+    llamadas = []
+    usuario_id = uuid4()
+    conversacion_id = uuid4()
+    evento_id = uuid4()
+    motor = MotorFalso(
+        [
+            _respuesta_reprogramar(
+                evento_id,
+                "2026-11-15T12:00:00+00:00",
+                "2026-11-15T13:00:00+00:00",
+            ),
+            RespuestaEstructurada("intencion", {}, 0.2),
+        ]
+    )
+    agente = AgentePersonal(_registro_reprogramar_evento(llamadas), motor)
+    propuesta = agente.procesar(usuario_id, conversacion_id, "reprograma")
+
+    resultado = agente.procesar(
+        usuario_id,
+        conversacion_id,
+        "xyz",
+        _historial_confirmacion(propuesta, "xyz"),
+    )
+
+    assert resultado["confirmacion_pendiente"] == propuesta["confirmacion_pendiente"]
+    assert resultado["error"] == propuesta["error"]
+    assert "mensaje" not in resultado.get("datos", {})
     assert llamadas == []
 
 

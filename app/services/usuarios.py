@@ -5,7 +5,7 @@ from uuid import UUID
 from app.domain.user import Usuario
 from app.repositories.interfaces import RepositorioUsuarios
 from app.schemas.user import UsuarioSchema, usuario_a_dict
-from app.services.errores import UsuarioNoEncontrado
+from app.services.errores import exigir_usuario
 
 
 class ServicioUsuarios:
@@ -41,10 +41,7 @@ class ServicioUsuarios:
         Raises:
             UsuarioNoEncontrado: Si no existe.
         """
-        usuario = self._usuarios.obtener(usuario_id)
-        if usuario is None:
-            raise UsuarioNoEncontrado(usuario_id)
-        return usuario
+        return exigir_usuario(self._usuarios.obtener, usuario_id)
 
     def cambiar_zona_horaria(self, usuario_id: UUID, zona_horaria: str) -> Usuario:
         """Cambia la zona horaria del usuario y guarda el cambio.

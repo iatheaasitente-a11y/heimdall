@@ -18,7 +18,7 @@ from app.repositories.sqlite_objetivos import RepositorioObjetivosSQLite
 from app.repositories.sqlite_recordatorios import RepositorioRecordatoriosSQLite
 from app.repositories.sqlite_usuarios import RepositorioUsuariosSQLite
 from app.services.agenda import ServicioAgenda
-from app.services.errores import ErrorDeServicio
+from app.services.errores import ErrorDeServicio, ErrorResolucionNombre
 from app.services.habitos import ServicioHabitos
 from app.services.objetivos import ServicioObjetivos
 from app.services.recordatorios import ServicioRecordatorios
@@ -82,7 +82,7 @@ def herramienta(entorno, nombre):
 
 def test_catalogo_registra_todas_las_herramientas_iniciales(entorno):
     nombres = {item.nombre for item in entorno[0].listar()}
-    assert len(nombres) == 21
+    assert len(nombres) == 25
     assert {
         "agenda_crear_evento",
         "habitos_listar",
@@ -378,6 +378,13 @@ def test_nombre_ambiguo_devuelve_candidatos_para_habitos(entorno):
     assert {
         candidato["id"] for candidato in resultado["candidatos"]
     } == {str(primero.id), str(segundo.id)}
+
+
+def test_error_de_resolucion_conserva_las_jerarquias_del_error():
+    error = ErrorResolucionNombre("No hay coincidencia", [])
+
+    assert isinstance(error, ErrorDeServicio)
+    assert isinstance(error, ValueError)
 
 
 def test_nombre_inexistente_devuelve_lista_de_candidatos_vacia(entorno):

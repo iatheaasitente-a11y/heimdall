@@ -12,17 +12,19 @@ lenguaje interpreta y explica; Python calcula; SQLite conserva los datos.
 | [decisiones.md](decisiones.md) | Decisiones de diseño y motivos |
 | [base-de-datos.md](base-de-datos.md) | Tablas SQLite y formatos |
 | [servicios.md](servicios.md) | Casos de uso y errores |
+| [auditoria-duplicacion-2026-11-12.md](auditoria-duplicacion-2026-11-12.md) | Auditoría y refactor de duplicación |
 | [pruebas.md](pruebas.md) | Tests y convenciones |
 | [hoja-de-ruta.md](hoja-de-ruta.md) | Qué falta y qué revisar |
 
-## Estado (22 oct 2026)
+## Estado (12 nov 2026)
 - Dominio y relaciones: hecho.
-- Esquemas Pydantic: hechos para todas las clases. Total: 272 tests en verde.
+- Esquemas Pydantic: hechos para todas las clases.
 - Base de datos SQLite (esquema y conexión): hecha.
 - Repositorios SQLite: hechos para todas las entidades.
-- Servicios: Usuarios, Agenda y Recordatorios hechos; faltan Hábitos, Objetivos y Conversaciones.
-- Agentes y chatbot: pendientes.
+- Los seis servicios, herramientas, agentes y chatbot de terminal están implementados.
+- Telegram dispone de conector con transporte falso; el arranque y el origen del mapeo de identidad siguen pendientes.
 - `app/domain/nba/` está vacío a propósito.
+- Última suite completa: 772 tests aprobados y 2 omitidos.
 
 ## Ejecutar
 ```bash

@@ -180,3 +180,24 @@ def _validar_selector(identificador: UUID | None, nombre: str | None) -> None:
         raise ValueError("Indica un identificador o un nombre, pero no ambos.")
     if nombre is not None and not nombre.strip():
         raise ValueError("El nombre no puede estar vacío.")
+
+
+class Momento(Parametros):
+    """Momento de referencia para consultas de agenda."""
+
+    ahora: AwareDatetime
+
+
+class ConsultaHuecos(Parametros):
+    """Franja en la que buscar huecos libres."""
+
+    dia: date
+    desde: AwareDatetime
+    hasta: AwareDatetime
+    minutos: int = Field(default=30, gt=0)
+
+
+class RecordatorioDeEvento(IdentificadorEvento):
+    """Recordatorio previo a un evento."""
+
+    minutos: int = Field(gt=0, le=10080)

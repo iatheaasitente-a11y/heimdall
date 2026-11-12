@@ -1,10 +1,14 @@
 """Límites de consultas y confianza para proteger el uso del motor."""
 
+import logging
 from collections.abc import Mapping, Sequence
 from uuid import UUID
 
 from app.llm.interfaz import ErrorRespuestaLLM, MotorLLM, RespuestaEstructurada
 from app.llm.roles import confianza_suficiente
+
+
+_LOG = logging.getLogger(__name__)
 
 
 class FrenosLLM:
@@ -42,15 +46,26 @@ class FrenosLLM:
         """
         usadas = self._consultas.get(conversacion_id, 0)
         if usadas >= self._max_consultas:
+            _LOG.warning("límite de consultas alcanzado.")
             return None
         self._consultas[conversacion_id] = usadas + 1
         try:
             respuesta = self._motor.interpretar(historial, herramientas)
-        except (OSError, ErrorRespuestaLLM):
+        except OSError:
+            _LOG.error("OSError al consultar el LLM.")
             return None
-        confianza = getattr(respuesta, "confianza", None)
-        if not confianza_suficiente(confianza, self._confianza_minima):
+        except ErrorRespuestaLLM:
+            _LOG.error("ErrorRespuestaLLM al interpretar la respuesta del LLM.")
             return None
         if not isinstance(respuesta, RespuestaEstructurada):
+            _LOG.error("La respuesta no es RespuestaEstructurada.")
+            return None
+        confianza = respuesta.confianza
+        if not confianza_suficiente(confianza, self._confianza_minima):
+            _LOG.warning(
+                "confianza insuficiente: %.2f < %.2f.",
+                confianza,
+                self._confianza_minima,
+            )
             return None
         return respuesta

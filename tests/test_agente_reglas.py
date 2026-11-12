@@ -30,28 +30,64 @@ def procesar(entorno, texto):
 
 
 def test_crea_evento_con_fecha_hora_y_duracion_explicitas(entorno):
-    resultado = procesar(
+    propuesta = procesar(
+        entorno,
+        "ma\u00f1ana a las cinco de la tarde reuni\u00f3n durante una hora",
+    )
+
+    assert propuesta["ok"] is True
+    assert "reuni\u00f3n" in propuesta["datos"].lower()
+    assert "Responde si para confirmar" in propuesta["datos"]
+
+    creado = procesar(entorno, "si")
+
+    assert creado["ok"] is True
+    assert "Evento creado" in creado["datos"]
+    assert "reuni\u00f3n" in creado["datos"].lower()
+    assert "17:00" in creado["datos"]
+
+
+
+def test_no_crea_evento_sin_confirmacion(entorno):
+    procesar(
         entorno,
         "mañana a las cinco de la tarde reunión durante una hora",
     )
 
-    assert resultado["ok"] is True
-    assert resultado["datos"]["titulo"] == "reunión"
-    assert resultado["datos"]["comienza"] == "2026-10-24T17:00:00+02:00"
-    assert resultado["datos"]["termina"] == "2026-10-24T18:00:00+02:00"
+    eventos = entorno[0].herramientas.obtener(
+        "agenda_eventos_del_dia"
+    ).ejecutar(
+        entorno[1].id,
+        {"dia": "2026-10-24"},
+    )
+
+    assert eventos["datos"] == []
+
+
+def test_cancela_evento_pendiente(entorno):
+    procesar(
+        entorno,
+        "mañana a las cinco de la tarde reunión durante una hora",
+    )
+
+    cancelado = procesar(entorno, "no")
+
+    assert cancelado["ok"] is True
+    assert "cancelado" in cancelado["datos"].lower()
 
 
 def test_pregunta_por_la_franja_de_una_hora_ambigua(entorno):
-    resultado = procesar(entorno, "mañana a las cinco reunión")
+    resultado = procesar(entorno, "ma\u00f1ana a las cinco reuni\u00f3n")
 
     assert resultado == {
         "ok": False,
-        "error": "¿Te refieres a la mañana, la tarde o la noche?",
+        "error": "\u00bfCu\u00e1nto dura el evento o a qu\u00e9 hora termina?",
     }
     assert entorno[0].herramientas.obtener("agenda_eventos_del_dia").ejecutar(
         entorno[1].id,
         {"dia": "2026-10-24"},
     )["datos"] == []
+
 
 
 def test_pregunta_por_el_dia_que_falta_para_crear_evento(entorno):
@@ -72,25 +108,39 @@ def test_pregunta_por_la_duracion_que_falta_para_crear_evento(entorno):
 
 
 def test_programa_recordatorio_con_fecha_y_hora_explicitas(entorno):
-    resultado = procesar(
+    propuesta = procesar(
         entorno,
-        "recuérdame llamar a mamá el jueves a las diez de la mañana",
+        "recu\u00e9rdame llamar a mam\u00e1 el jueves a las diez de la ma\u00f1ana",
     )
 
-    assert resultado["ok"] is True
-    assert resultado["datos"]["mensaje"] == "llamar a mamá"
-    assert resultado["datos"]["programado_para"] == "2026-10-29T10:00:00+01:00"
+    assert propuesta["ok"] is True
+    assert "llamar a mam\u00e1" in propuesta["datos"]
+    assert "Responde si para confirmar" in propuesta["datos"]
+
+    creado = procesar(entorno, "si")
+
+    assert creado["ok"] is True
+    assert creado["datos"]["mensaje"] == "llamar a mam\u00e1"
+    assert creado["datos"]["programado_para"] == "2026-10-29T10:00:00+01:00"
 
 
-def test_pregunta_por_la_franja_ambigua_del_recordatorio(entorno):
-    resultado = procesar(entorno, "recuérdame llamar a mamá el jueves a las diez")
 
-    assert resultado["ok"] is False
-    assert "¿Te refieres a la mañana, la tarde o la noche?" in resultado["error"]
-    assert entorno[0].herramientas.obtener("recordatorios_listar").ejecutar(
-        entorno[1].id,
-        {},
-    )["datos"] == []
+def test_asume_manana_para_hora_ambigua_de_recordatorio(entorno):
+    propuesta = procesar(
+        entorno,
+        "recu\u00e9rdame llamar a mam\u00e1 el jueves a las diez",
+    )
+
+    assert propuesta["ok"] is True
+    assert "llamar a mam\u00e1" in propuesta["datos"]
+    assert "Responde si para confirmar" in propuesta["datos"]
+
+    creado = procesar(entorno, "si")
+
+    assert creado["ok"] is True
+    assert creado["datos"]["mensaje"] == "llamar a mam\u00e1"
+    assert creado["datos"]["programado_para"] == "2026-10-29T10:00:00+01:00"
+
 
 
 def test_pregunta_por_el_dia_que_falta_para_programar_recordatorio(entorno):

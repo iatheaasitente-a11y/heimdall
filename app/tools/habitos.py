@@ -8,7 +8,6 @@ from app.tools.esquemas import (
     ListarHabitos,
     RegistrarProgresoHabito,
 )
-from app.tools.resolucion import resolver_por_nombre
 
 
 def herramientas_habitos(servicio: ServicioHabitos) -> list[Herramienta]:
@@ -17,12 +16,7 @@ def herramientas_habitos(servicio: ServicioHabitos) -> list[Herramienta]:
     def habito_id(usuario_id, argumentos):
         if argumentos["habito_id"] is not None:
             return argumentos["habito_id"]
-        return resolver_por_nombre(
-            argumentos["nombre"],
-            servicio.listar_habitos(usuario_id),
-            lambda habito: habito.nombre,
-            "hábitos",
-        )
+        return servicio.resolver_habito_id(usuario_id, argumentos["nombre"])
 
     def registrar(usuario_id, argumentos):
         return servicio.registrar_progreso(

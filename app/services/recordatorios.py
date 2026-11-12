@@ -5,7 +5,6 @@ from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from app.domain.reminder import Recordatorio
-from app.domain.user import Usuario
 from app.repositories.interfaces import (
     RepositorioEventos,
     RepositorioRecordatorios,
@@ -17,9 +16,11 @@ from app.services.errores import (
     EventoNoEncontrado,
     RecordatorioEnElPasado,
     RecordatorioNoEncontrado,
-    UsuarioNoEncontrado,
+    exigir_usuario,
+    obtener_entidad_de_usuario,
     transicion_de_estado,
 )
+from app.services.resolucion import resolver_por_nombre
 
 
 class ServicioRecordatorios:
@@ -58,7 +59,7 @@ class ServicioRecordatorios:
                 lleva zona horaria.
             RecordatorioEnElPasado: Si ``cuando`` ya ha pasado.
         """
-        self._exigir_usuario(usuario_id)
+        exigir_usuario(self._usuarios.obtener, usuario_id)
         recordatorio = Recordatorio(usuario_id, mensaje.strip(), cuando)
         return self._guardar_si_es_futuro(recordatorio)
 
@@ -83,12 +84,12 @@ class ServicioRecordatorios:
         """
         if antelacion < timedelta(0):
             raise ValueError("La antelación no puede ser negativa.")
-        evento = self._eventos.obtener(evento_id)
-        if evento is None or evento.usuario_id != usuario_id:
-            raise EventoNoEncontrado(evento_id)
+        evento = obtener_entidad_de_usuario(
+            self._eventos.obtener, usuario_id, evento_id, EventoNoEncontrado
+        )
         if not evento.esta_activo():
             raise EventoNoActivo(evento.titulo)
-        usuario = self._exigir_usuario(usuario_id)
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
         if mensaje is None:
             hora = evento.comienza.astimezone(usuario.zona())
             mensaje = f"{evento.titulo} empieza a las {hora:%H:%M}"
@@ -107,7 +108,12 @@ class ServicioRecordatorios:
             RecordatorioNoEncontrado: Si no existe o es de otro usuario.
             CambioDeEstadoNoPermitido: Si ya está enviado o cancelado.
         """
-        recordatorio = self._obtener(usuario_id, recordatorio_id)
+        recordatorio = obtener_entidad_de_usuario(
+            self._recordatorios.obtener,
+            usuario_id,
+            recordatorio_id,
+            RecordatorioNoEncontrado,
+        )
         with transicion_de_estado():
             recordatorio.cancelar()
         self._recordatorios.guardar(recordatorio)
@@ -139,7 +145,7 @@ class ServicioRecordatorios:
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
         """
-        usuario = self._exigir_usuario(usuario_id)
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
         return self._recordatorios.listar_pendientes_del_dia(usuario_id, dia, usuario.zona())
 
     def listar_recordatorios(self, usuario_id: UUID) -> list[Recordatorio]:
@@ -148,8 +154,17 @@ class ServicioRecordatorios:
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
         """
-        self._exigir_usuario(usuario_id)
+        exigir_usuario(self._usuarios.obtener, usuario_id)
         return self._recordatorios.listar_por_usuario(usuario_id)
+
+    def resolver_recordatorio_id(self, usuario_id: UUID, mensaje: str) -> UUID:
+        """Resuelve el mensaje exacto de un recordatorio propio a su identificador."""
+        return resolver_por_nombre(
+            mensaje,
+            self.listar_recordatorios(usuario_id),
+            lambda recordatorio: recordatorio.mensaje,
+            "recordatorios",
+        )
 
     def vencidos(self) -> list[Recordatorio]:
         """Devuelve los recordatorios pendientes de todos los usuarios que ya tocan.
@@ -166,17 +181,3 @@ class ServicioRecordatorios:
             raise RecordatorioEnElPasado(recordatorio.programado_para)
         self._recordatorios.guardar(recordatorio)
         return recordatorio
-
-    def _obtener(self, usuario_id: UUID, recordatorio_id: UUID) -> Recordatorio:
-        """Devuelve un recordatorio del usuario o lanza ``RecordatorioNoEncontrado``."""
-        recordatorio = self._recordatorios.obtener(recordatorio_id)
-        if recordatorio is None or recordatorio.usuario_id != usuario_id:
-            raise RecordatorioNoEncontrado(recordatorio_id)
-        return recordatorio
-
-    def _exigir_usuario(self, usuario_id: UUID) -> Usuario:
-        """Devuelve el usuario o lanza ``UsuarioNoEncontrado``."""
-        usuario = self._usuarios.obtener(usuario_id)
-        if usuario is None:
-            raise UsuarioNoEncontrado(usuario_id)
-        return usuario

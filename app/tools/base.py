@@ -11,8 +11,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.services.errores import ErrorDeServicio
-from app.tools.errores import ErrorResolucionNombre
+from app.services.errores import ErrorDeServicio, ErrorResolucionNombre
 
 Ejecutor = Callable[[UUID, dict[str, Any]], object]
 _REGISTRO = logging.getLogger(__name__)
