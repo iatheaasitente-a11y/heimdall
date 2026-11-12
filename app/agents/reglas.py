@@ -207,6 +207,10 @@ class ReglasDeterministas:
             if peticion_huecos.get("ok") is False:
                 return peticion_huecos
             return self._consultar_huecos(usuario_id, peticion_huecos)
+
+        consulta_evento = _detectar_consulta_evento(normalizado)
+        if consulta_evento is not None:
+            return self._consultar_evento(usuario_id, consulta_evento)
         accion_pendiente = self._acciones_pendientes.get(usuario_id)
         if accion_pendiente is not None:
             if normalizado in {"si", "vale", "confirmo", "confirmar"}:
@@ -275,6 +279,53 @@ class ReglasDeterministas:
         if _es_consulta_habito(normalizado):
             return self._consultar_habito(usuario_id, normalizado)
         return None
+
+    def _consultar_evento(
+        self,
+        usuario_id: UUID,
+        titulo: str,
+    ) -> dict[str, object] | None:
+        """Consulta un evento por titulo y lo presenta en lenguaje natural."""
+
+        try:
+            resultado = self._herramientas.obtener(
+                "agenda_consultar_evento"
+            ).ejecutar(
+                usuario_id,
+                {"evento_id": None, "titulo": titulo},
+            )
+        except KeyError:
+            return None
+
+        if resultado.get("ok") is not True:
+            return resultado
+
+        evento = resultado.get("datos")
+        if not isinstance(evento, dict):
+            return resultado
+
+        zona = self._ahora(usuario_id).tzinfo
+        comienza = datetime.fromisoformat(
+            evento["comienza"]
+        ).astimezone(zona)
+        termina = datetime.fromisoformat(
+            evento["termina"]
+        ).astimezone(zona)
+
+        texto = (
+            f"{evento['titulo']} es el "
+            f"{comienza.strftime('%d/%m/%Y')} de "
+            f"{comienza.strftime('%H:%M')} a "
+            f"{termina.strftime('%H:%M')}."
+        )
+
+        if evento.get("ubicacion"):
+            texto += f"\nLugar: {evento['ubicacion']}"
+
+        if evento.get("descripcion"):
+            texto += f"\nNotas: {evento['descripcion']}"
+
+        return {"ok": True, "datos": texto}
 
     def _consultar_proxima_cita(self, usuario_id: UUID) -> dict[str, object]:
         """Consulta y presenta el siguiente evento activo."""
@@ -1437,3 +1488,19 @@ def _detectar_huecos(
         ),
         "minutos": 30,
     }
+
+
+def _detectar_consulta_evento(texto: str) -> str | None:
+    """Detecta consultas del tipo: cuando tengo el dentista."""
+
+    coincidencia = re.search(
+        r"\b(?:cuando tengo|cuando es)\s+(?:el\s+)?"
+        r"(?P<titulo>.+?)\??$",
+        texto,
+        re.IGNORECASE,
+    )
+
+    if coincidencia is None:
+        return None
+
+    return coincidencia.group("titulo").strip(" \t\n,.;:!?\u00bf\u00a1-")
