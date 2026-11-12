@@ -97,14 +97,18 @@ def test_eliminar_conversacion_indica_si_existia(repos):
     assert conversaciones.eliminar(c.id) is False
 
 
-def test_eliminar_usuario_elimina_conversaciones_y_mensajes(repos):
+def test_eliminar_usuario_con_mensajes_no_borra_el_historial(repos):
     usuarios, conversaciones, mensajes = repos
     u, c = crear_conversacion(usuarios, conversaciones)
     m = Mensaje(c.id, RolMensaje.USUARIO, "Hola")
     mensajes.guardar(m)
-    usuarios.eliminar(u.id)
-    assert conversaciones.obtener(c.id) is None
-    assert mensajes.obtener(m.id) is None
+
+    with pytest.raises(sqlite3.IntegrityError, match="mensajes son inmutables"):
+        usuarios.eliminar(u.id)
+
+    assert usuarios.obtener(u.id) is not None
+    assert conversaciones.obtener(c.id) is not None
+    assert mensajes.obtener(m.id) == m
 
 
 def test_mensaje_guardar_y_obtener_devuelve_el_mismo(repos):
@@ -130,14 +134,15 @@ def test_mensaje_de_conversacion_inexistente_falla(repos):
         mensajes.guardar(Mensaje(uuid4(), RolMensaje.USUARIO, "Hola"))
 
 
-def test_guardar_mensaje_de_nuevo_actualiza_sin_duplicar(repos):
+def test_guardar_mensaje_existente_no_permite_editarlo(repos):
     usuarios, conversaciones, mensajes = repos
     _, c = crear_conversacion(usuarios, conversaciones)
     m = Mensaje(c.id, RolMensaje.ASISTENTE, "Borrador")
     mensajes.guardar(m)
     m.contenido = "Versión final"
-    mensajes.guardar(m)
-    assert mensajes.obtener(m.id).contenido == "Versión final"
+    with pytest.raises(sqlite3.IntegrityError, match="mensajes son inmutables"):
+        mensajes.guardar(m)
+    assert mensajes.obtener(m.id).contenido == "Borrador"
     assert len(mensajes.listar_por_conversacion(c.id)) == 1
 
 
@@ -206,22 +211,25 @@ def test_los_mensajes_leidos_sirven_para_el_historial_del_modelo(repos):
     ]
 
 
-def test_eliminar_mensaje_indica_si_existia(repos):
+def test_eliminar_mensaje_no_puede_borrar_el_historial(repos):
     usuarios, conversaciones, mensajes = repos
     _, c = crear_conversacion(usuarios, conversaciones)
     m = Mensaje(c.id, RolMensaje.USUARIO, "Hola")
     mensajes.guardar(m)
-    assert mensajes.eliminar(m.id) is True
-    assert mensajes.eliminar(m.id) is False
+    with pytest.raises(sqlite3.IntegrityError, match="mensajes son inmutables"):
+        mensajes.eliminar(m.id)
+    assert mensajes.obtener(m.id) == m
 
 
-def test_eliminar_conversacion_elimina_sus_mensajes(repos):
+def test_eliminar_conversacion_con_mensajes_no_borra_el_historial(repos):
     usuarios, conversaciones, mensajes = repos
     _, c = crear_conversacion(usuarios, conversaciones)
     m = Mensaje(c.id, RolMensaje.USUARIO, "Hola")
     mensajes.guardar(m)
-    conversaciones.eliminar(c.id)
-    assert mensajes.obtener(m.id) is None
+    with pytest.raises(sqlite3.IntegrityError, match="mensajes son inmutables"):
+        conversaciones.eliminar(c.id)
+    assert conversaciones.obtener(c.id) is not None
+    assert mensajes.obtener(m.id) == m
 
 
 def test_las_interfaces_no_se_pueden_instanciar():

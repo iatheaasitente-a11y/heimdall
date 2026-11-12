@@ -6,6 +6,11 @@ PRAGMA foreign_keys = ON;
 --    Con ese formato el orden alfabético coincide con el orden cronológico.
 --    Se generan con app.database.fechas.a_texto().
 
+CREATE TABLE IF NOT EXISTS schema_version (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    version INTEGER NOT NULL CHECK (version >= 0)
+);
+
 CREATE TABLE IF NOT EXISTS usuarios (
     id TEXT PRIMARY KEY,
     nombre TEXT NOT NULL

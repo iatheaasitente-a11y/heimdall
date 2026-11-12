@@ -23,9 +23,17 @@ def crear_conexion(ruta: str | Path = DEFAULT_DATABASE_PATH) -> sqlite3.Connecti
         ruta = Path(ruta)
         ruta.parent.mkdir(parents=True, exist_ok=True)
     conexion = sqlite3.connect(ruta)
-    conexion.row_factory = sqlite3.Row
-    conexion.execute("PRAGMA foreign_keys = ON")
-    conexion.execute("PRAGMA busy_timeout = 5000")
+    try:
+        conexion.row_factory = sqlite3.Row
+        conexion.execute("PRAGMA foreign_keys = ON")
+        conexion.execute("PRAGMA busy_timeout = 5000")
+        if ruta != ":memory:":
+            modo = conexion.execute("PRAGMA journal_mode = WAL").fetchone()[0]
+            if modo.casefold() != "wal":
+                raise RuntimeError("SQLite no pudo habilitar el modo WAL.")
+    except Exception:
+        conexion.close()
+        raise
     return conexion
 
 

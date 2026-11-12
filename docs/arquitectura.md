@@ -15,6 +15,10 @@ Hoy existen el dominio, los esquemas, la base de datos SQLite, los repositorios
 SQLite y los seis servicios: usuarios, agenda, recordatorios, hábitos, objetivos
 y conversaciones.
 
+SQLite usa WAL en bases en archivo y `schema_version` para aplicar migraciones
+secuenciales. La migración actual protege `mensajes` contra `UPDATE` y `DELETE`;
+las cascadas foráneas permanecen sin cambios y su política sigue pendiente.
+
 ## Reglas
 1. `app/domain` es puro: sin SQL, sin FastAPI, sin librerías de IA, sin I/O.
 2. Los datos externos entran por esquemas Pydantic antes de crear objetos de dominio.

@@ -61,10 +61,40 @@ def test_aplicar_schema_es_idempotente(conexion):
     aplicar_schema(conexion)
     aplicar_schema(conexion)
     assert esquema_completo(conexion)
+    assert conexion.execute(
+        "SELECT version FROM schema_version WHERE id = 1"
+    ).fetchone()["version"] == 1
+    assert conexion.execute(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger'"
+    ).fetchone()[0] == 2
+
+
+def test_aplicar_schema_rechaza_version_mas_reciente(conexion):
+    conexion.execute("UPDATE schema_version SET version = 99 WHERE id = 1")
+    conexion.commit()
+
+    with pytest.raises(RuntimeError, match="más reciente"):
+        aplicar_schema(conexion)
 
 
 def test_claves_foraneas_estan_activadas(conexion):
     assert conexion.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
+
+def test_conexion_de_archivo_habilita_wal(tmp_path):
+    conexion = crear_conexion(tmp_path / "wal.sqlite3")
+    try:
+        assert conexion.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    finally:
+        conexion.close()
+
+
+def test_conexion_en_memoria_no_habilita_wal():
+    conexion = crear_conexion(":memory:")
+    try:
+        assert conexion.execute("PRAGMA journal_mode").fetchone()[0] == "memory"
+    finally:
+        conexion.close()
 
 
 def test_no_permite_conversacion_sin_usuario(conexion):
@@ -78,7 +108,7 @@ def test_no_permite_conversacion_sin_usuario(conexion):
         )
 
 
-def test_eliminar_usuario_elimina_sus_datos(conexion):
+def test_trigger_inmutable_bloquea_actualizar_y_borrar_mensaje(conexion):
     insertar_usuario(conexion)
     conexion.execute(
         """
@@ -96,9 +126,43 @@ def test_eliminar_usuario_elimina_sus_datos(conexion):
         """,
         ("mensaje-1", "conversacion-1", "usuario", "Hola", T1, "{}"),
     )
-    conexion.execute("DELETE FROM usuarios WHERE id = ?", ("usuario-1",))
-    assert contar(conexion, "conversaciones") == 0
-    assert contar(conexion, "mensajes") == 0
+    with pytest.raises(sqlite3.IntegrityError, match="mensajes son inmutables"):
+        conexion.execute(
+            "UPDATE mensajes SET contenido = ? WHERE id = ?",
+            ("Editado", "mensaje-1"),
+        )
+    with pytest.raises(sqlite3.IntegrityError, match="mensajes son inmutables"):
+        conexion.execute("DELETE FROM mensajes WHERE id = ?", ("mensaje-1",))
+    assert conexion.execute(
+        "SELECT contenido FROM mensajes WHERE id = ?", ("mensaje-1",)
+    ).fetchone()["contenido"] == "Hola"
+
+
+def test_cascada_de_usuario_con_mensajes_esta_bloqueada_por_el_trigger(conexion):
+    insertar_usuario(conexion)
+    conexion.execute(
+        """
+        INSERT INTO conversaciones (id, usuario_id, titulo, fecha_creacion, activa)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        ("conversacion-1", "usuario-1", "Prueba", T0, 1),
+    )
+    conexion.execute(
+        """
+        INSERT INTO mensajes (
+            id, conversacion_id, rol, contenido, fecha_creacion, metadatos_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        ("mensaje-1", "conversacion-1", "usuario", "Hola", T1, "{}"),
+    )
+
+    with pytest.raises(sqlite3.IntegrityError, match="mensajes son inmutables"):
+        conexion.execute("DELETE FROM usuarios WHERE id = ?", ("usuario-1",))
+
+    assert contar(conexion, "usuarios") == 1
+    assert contar(conexion, "conversaciones") == 1
+    assert contar(conexion, "mensajes") == 1
 
 
 def test_rechaza_json_invalido(conexion):
