@@ -80,6 +80,10 @@ La fase de voz valida el límite de tamaño y calcula la duración desde los
 fotogramas y la frecuencia del WAV. Incluye un transcriptor falso; la clase
 `MotorOllamaVoz` es un esqueleto explícito y no realiza solicitudes de red.
 
+El script `scripts/bench_modelos.py` sirve para medir una solicitud de texto
+contra Ollama local y emitir métricas en JSON. La plantilla vacía del banco,
+sin mediciones ni recomendaciones, está en [`modelos.md`](./modelos.md).
+
 ## Fases siguientes
 
 ### Bloque A — Chatbot funcional
