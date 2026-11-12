@@ -24,6 +24,7 @@ class EventoSchema(BaseModel):
     descripcion: str | None = None
     ubicacion: str | None = None
     estado: EstadoEvento = EstadoEvento.PROGRAMADO
+    todo_el_dia: bool = False
 
     @model_validator(mode="after")
     def termina_despues_de_empezar(self):
