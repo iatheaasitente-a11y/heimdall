@@ -214,8 +214,9 @@ verificado.
 Los tres borradores declaran explícitamente `read` y `search`, no fijan modelo y deshabilitan
 la invocación por otros agentes. `strict-tools-list: true` solo se conservaría si se confirma
 que el cliente objetivo realmente lo aplica; escribirlo en frontmatter no resuelve la limitación
-del Copilot SDK descrita arriba. No crear los archivos hasta recibir aprobación explícita de
-los perfiles y del cliente/runtime objetivo.
+del Copilot SDK descrita arriba. La creación queda pendiente de la prueba manual del usuario
+para confirmar que el runtime limite las herramientas a `read` y `search`, y de su aprobación
+explícita para crear los perfiles.
 
 ## Evidencia guardada y límites de la revisión
 
