@@ -142,6 +142,15 @@ class ServicioRecordatorios:
         usuario = self._exigir_usuario(usuario_id)
         return self._recordatorios.listar_pendientes_del_dia(usuario_id, dia, usuario.zona())
 
+    def listar_recordatorios(self, usuario_id: UUID) -> list[Recordatorio]:
+        """Lista los recordatorios del usuario en orden de fecha programada.
+
+        Raises:
+            UsuarioNoEncontrado: Si el usuario no existe.
+        """
+        self._exigir_usuario(usuario_id)
+        return self._recordatorios.listar_por_usuario(usuario_id)
+
     def vencidos(self) -> list[Recordatorio]:
         """Devuelve los recordatorios pendientes de todos los usuarios que ya tocan.
 

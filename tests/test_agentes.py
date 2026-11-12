@@ -1,10 +1,11 @@
+import json
 from datetime import date
 from functools import partial
 from inspect import isabstract
 from uuid import uuid4
 
 import pytest
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict
 
 from app.agents import AgenteBase, AgentePersonal
 from app.llm import MotorFalso, RespuestaEstructurada
@@ -142,9 +143,103 @@ def test_motor_llm_no_puede_elegir_usuario_id():
         ]
     )
     agente = AgentePersonal(_registro_resumen(llamadas), motor)
-    with pytest.raises(ValidationError, match="usuario_id"):
-        agente.procesar(uuid4(), uuid4(), "Dame un resumen")
+    resultado = agente.procesar(uuid4(), uuid4(), "Dame un resumen")
+    assert resultado is None
     assert llamadas == []
+
+
+def test_motor_no_puede_inyectar_campos_que_el_esquema_no_declara():
+    class ParametrosPermisivos(BaseModel):
+        texto: str
+
+    llamadas = []
+    registro = RegistroHerramientas()
+    registro.registrar(
+        Herramienta(
+            "eco",
+            "Devuelve el texto.",
+            ParametrosPermisivos,
+            lambda _usuario_id, argumentos: llamadas.append(argumentos),
+        )
+    )
+    motor = MotorFalso(
+        [
+            RespuestaEstructurada(
+                "eco",
+                {"texto": "válido", "campo_fuera_del_catalogo": "rechazado"},
+                0.9,
+            )
+        ]
+    )
+    agente = AgentePersonal(registro, motor)
+
+    assert agente.procesar(uuid4(), uuid4(), "repite") is None
+    assert llamadas == []
+
+
+def test_motor_no_puede_enviar_un_valor_invalido_al_servicio():
+    llamadas = []
+    motor = MotorFalso(
+        [
+            RespuestaEstructurada(
+                "resumen_del_dia",
+                {"dia": "no es una fecha"},
+                0.9,
+            )
+        ]
+    )
+    agente = AgentePersonal(_registro_resumen(llamadas), motor)
+
+    assert agente.procesar(uuid4(), uuid4(), "dame el resumen") is None
+    assert llamadas == []
+
+
+def test_agente_pasa_la_pregunta_pendiente_y_los_ultimos_cuatro_turnos():
+    llamadas = []
+    usuario_id = uuid4()
+    motor = MotorFalso(
+        [RespuestaEstructurada("resumen_del_dia", {"dia": "2026-11-12"}, 0.9)]
+    )
+    agente = AgentePersonal(_registro_resumen(llamadas), motor)
+    historial = []
+    for indice in range(5):
+        historial.extend(
+            [
+                {"role": "user", "content": f"petición {indice}"},
+                {"role": "assistant", "content": "respuesta anterior"},
+            ]
+        )
+    historial.extend(
+        [
+            {
+                "role": "assistant",
+                "content": json.dumps(
+                    {"ok": False, "error": "¿Qué día quieres?"},
+                    ensure_ascii=False,
+                ),
+            },
+            {"role": "user", "content": "mañana"},
+        ]
+    )
+
+    resultado = agente.procesar(
+        usuario_id,
+        uuid4(),
+        "mañana",
+        historial,
+    )
+
+    assert resultado["ok"] is True
+    assert motor.ultimo_historial[0] == {
+        "role": "system",
+        "content": "esperando: ¿Qué día quieres?",
+    }
+    assert [
+        mensaje["content"]
+        for mensaje in motor.ultimo_historial
+        if mensaje["role"] == "user"
+    ] == ["petición 2", "petición 3", "petición 4", "mañana"]
+    assert llamadas == [(usuario_id, {"dia": date(2026, 11, 12)})]
 
 
 def test_confianza_baja_o_cuota_agotada_no_ejecuta_herramienta():

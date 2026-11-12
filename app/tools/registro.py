@@ -1,5 +1,6 @@
 """Catálogo de herramientas y composición de las herramientas iniciales."""
 
+from app.domain.nba.fuente import FuenteNBA
 from app.services.agenda import ServicioAgenda
 from app.services.habitos import ServicioHabitos
 from app.services.objetivos import ServicioObjetivos
@@ -8,6 +9,7 @@ from app.services.usuarios import ServicioUsuarios
 from app.tools.agenda import herramientas_agenda
 from app.tools.base import Herramienta
 from app.tools.habitos import herramientas_habitos
+from app.tools.nba import herramienta_nba
 from app.tools.objetivos import herramientas_objetivos
 from app.tools.recordatorios import herramientas_recordatorios
 from app.tools.resumen import herramienta_resumen_del_dia
@@ -53,6 +55,7 @@ def registrar_herramientas(
     habitos: ServicioHabitos,
     objetivos: ServicioObjetivos,
     recordatorios: ServicioRecordatorios,
+    fuente_nba: FuenteNBA | None = None,
 ) -> RegistroHerramientas:
     """Registra las herramientas iniciales sobre servicios ya compuestos."""
     herramientas = [
@@ -62,6 +65,8 @@ def registrar_herramientas(
         *herramientas_recordatorios(recordatorios),
         herramienta_resumen_del_dia(usuarios, agenda, habitos, recordatorios),
     ]
+    if fuente_nba is not None:
+        herramientas.append(herramienta_nba(fuente_nba))
     for herramienta in herramientas:
         registro.registrar(herramienta)
     return registro

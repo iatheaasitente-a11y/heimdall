@@ -32,7 +32,20 @@ REGLAS = {
     ),
     "tools": ("app.domain", "app.schemas", "app.services", "app.tools"),
     "llm": ("app.llm",),
-    "agents": ("app.domain.message", "app.llm", "app.tools", "app.agents"),
+    "agents": (
+        "app.domain.message",
+        "app.domain.lenguaje_fechas",
+        "app.llm",
+        "app.tools",
+        "app.agents",
+    ),
+    "chatbot": (
+        "app.composicion",
+        "app.database",
+        "app.domain.message",
+        "app.llm.configuracion",
+        "app.llm.ollama",
+    ),
 }
 
 CAPAS_CON_TERCEROS = {"schemas", "tools", "llm", "agents"}
@@ -107,6 +120,10 @@ def violaciones_del_proyecto(raiz=RAIZ):
         relativo = archivo.relative_to(raiz)
         nombre = f"app/{relativo.as_posix()}"
         if len(relativo.parts) == 1:
+            if relativo.name == "chatbot.py":
+                texto = archivo.read_text(encoding="utf-8")
+                resultado.extend(analizar(texto, "chatbot", nombre))
+                continue
             if relativo.name in ARCHIVOS_EXENTOS | ARCHIVOS_LIBRES:
                 continue
             resultado.append(f"{nombre}: archivo suelto en app/ sin regla")
@@ -137,6 +154,9 @@ PROHIBIDOS = [
     ("agents", "from app.services.agenda import ServicioAgenda\n"),
     ("agents", "from app.repositories.interfaces import RepositorioEventos\n"),
     ("agents", "import sqlite3\n"),
+    ("chatbot", "from app.services.agenda import ServicioAgenda\n"),
+    ("chatbot", "from app.repositories.interfaces import RepositorioEventos\n"),
+    ("chatbot", "from app.domain.nba.fuente import FuenteNBA\n"),
     ("domain", "from .user import Usuario\n"),
     ("capa_inventada", "from app.domain.user import Usuario\n"),
 ]
@@ -151,10 +171,16 @@ PERMITIDOS = [
     ("services", "from app.repositories import interfaces\n"
                  "from app.repositories.interfaces import RepositorioEventos\n"
                  "from app.schemas.user import UsuarioSchema\n"),
-    ("agents", "from app.domain.message import Mensaje\nfrom app.llm.backend import LLMBackend\n"
+    ("agents", "from app.domain.message import Mensaje\n"
+               "from app.domain.lenguaje_fechas import resolver_fecha\n"
+               "from app.llm.backend import LLMBackend\n"
                "from app.tools.base import Herramienta\n"),
     ("llm", "import json\nfrom pydantic import BaseModel\n"),
     ("database", "import sqlite3\nfrom app.database.fechas import a_texto\n"),
+    ("chatbot", "from app.composicion import crear_composicion\n"
+                "from app.llm.ollama import MotorOllama\n"),
+    ("chatbot", "from app.domain.message import RolMensaje\n"
+                "from app.database.connection import sesion_sqlite\n"),
 ]
 
 

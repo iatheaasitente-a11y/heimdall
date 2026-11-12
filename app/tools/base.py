@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.services.errores import ErrorDeServicio
+from app.tools.errores import ErrorResolucionNombre
 
 Ejecutor = Callable[[UUID, dict[str, Any]], object]
 
@@ -37,16 +38,15 @@ class Herramienta:
     def ejecutar(
         self, usuario_id: UUID, argumentos: Mapping[str, Any]
     ) -> dict[str, object]:
-        """Valida argumentos y ejecuta el servicio con el usuario del sistema.
-
-        Raises:
-            pydantic.ValidationError: Si los argumentos no cumplen el esquema.
-        """
-        parametros = self.parametros.model_validate(dict(argumentos))
+        """Valida argumentos y ejecuta el servicio con el usuario del sistema."""
         try:
+            parametros = self.parametros.model_validate(dict(argumentos))
             datos = self._ejecutar(usuario_id, parametros.model_dump())
-        except ErrorDeServicio as error:
-            return {"ok": False, "error": str(error)}
+        except (ErrorDeServicio, ValueError) as error:
+            resultado: dict[str, object] = {"ok": False, "error": str(error)}
+            if isinstance(error, ErrorResolucionNombre):
+                resultado["candidatos"] = error.candidatos
+            return resultado
         return {"ok": True, "datos": _a_json(datos)}
 
 

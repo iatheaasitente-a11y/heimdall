@@ -60,6 +60,16 @@ Método: `esta_vacio()` (true si solo hay espacios).
 | `racha_diaria(habito, registros, hoy, zona)` | Días seguidos cumpliendo el objetivo |
 | `resumen_del_dia(usuario, dia, eventos, habitos, registros, recordatorios)` | Diccionario con eventos, hábitos pendientes y recordatorios |
 
+## lenguaje_fechas.py
+
+Funciones puras para expresiones de fecha y hora en español. Las funciones de
+resolución reciben un `datetime` con zona horaria en vez de leer el reloj
+global. `resolver_fecha` y `resolver_fecha_hora` avanzan hacia el futuro; solo
+entienden ayer y anteayer si se pasa `permitir_pasado=True`.
+`resolver_hora` conserva la hora ambigua, pero marca `acotada=False` cuando no
+se indicó una franja. Las expresiones no resolubles devuelven `None`.
+`decir_fecha`, `decir_hora` y `decir_duracion` expresan valores en palabras.
+
 ## errores.py
 `TransicionNoPermitida` (hereda de `ValueError`): cambio de estado que las reglas no permiten. Guarda `actual` y `destino`.
 Transiciones válidas: Evento PROGRAMADO a COMPLETADO o CANCELADO; Recordatorio PENDIENTE a ENVIADO o CANCELADO.
