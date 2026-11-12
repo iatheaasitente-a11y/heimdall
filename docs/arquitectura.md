@@ -38,10 +38,18 @@ Cada fallo indica archivo y línea.
 | `database` | `database` | No |
 | `repositories` | `domain`, `database`, `repositories` | No |
 | `services` | `domain`, `schemas`, `repositories.interfaces`, `services` | No |
-| `tools` (futura) | `domain`, `schemas`, `services`, `tools` | Sí |
+| `tools` | `domain`, `schemas`, `services`, `tools` | Sí |
 | `llm` (futura) | solo `llm` | Sí |
 | `agents` (futura) | `domain.message`, `llm`, `tools`, `agents` | Sí |
 
 - `sqlite3` solo se usa en `database` y `repositories`.
 - Las implementaciones `sqlite_*` solo las importa `app/composicion.py`, que es el único archivo exento.
 - Para permitir una dependencia nueva hay que ampliar `REGLAS` en el test y dejarlo escrito aquí.
+
+## Herramientas
+
+Cada herramienta declara argumentos en un modelo Pydantic del que obtiene su
+esquema JSON. El `usuario_id` se pasa por separado desde el sistema y nunca
+forma parte de los argumentos del modelo. Las herramientas delegan en servicios
+y convierten sus resultados a JSON; los `ErrorDeServicio` se devuelven como
+errores estructurados. Las operaciones internas de recordatorios no se exponen.
