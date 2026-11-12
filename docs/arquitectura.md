@@ -80,6 +80,8 @@ confirma la descarga o que solo el modelo solicitado quedó cargado, falla
 cerrado. Los plazos monotónicos por rol y el umbral mínimo de confianza (0,70)
 están en [`plan-llm.md`](./plan-llm.md). El lock no coordina otros procesos ni
 otros clientes de Ollama, así que no garantiza exclusión frente a ellos.
+Los nombres de modelo sin etiqueta se normalizan a `:latest` tanto al guardar
+el catálogo como al comparar la salida de `/api/ps`.
 Los frenos limitan consultas por conversación y tratan la confianza ausente,
 ilegible o fuera de rango como baja. Antes de ejecutar, el agente comprueba que
 la herramienta y sus argumentos pertenecen al catálogo; al motor solo pasa los
@@ -94,7 +96,8 @@ usan motores falsos y no requieren Ollama.
 
 La entrada de voz valida WAV PCM sin comprimir mediante `wave`, con límites
 de tamaño y duración. Incluye un transcriptor falso; `MotorOllamaVoz` permanece
-como esqueleto y no realiza llamadas de red.
+como esqueleto y no realiza llamadas de red. El planificador rechaza el rol
+VOZ hasta que haya una implementación operativa.
 
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
 Las reglas interpretan fechas con `app/domain/lenguaje_fechas.py`; si faltan

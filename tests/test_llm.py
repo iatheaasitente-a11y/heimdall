@@ -268,7 +268,7 @@ def test_configuracion_selecciona_ollama_o_nube(monkeypatch):
     monkeypatch.setenv("HEIMDALL_LLM", "ollama")
     motor = crear_motor()
     assert isinstance(motor, MotorOllama)
-    assert motor._modelo == "modelo-texto"
+    assert motor._modelo == "modelo-texto:latest"
     monkeypatch.setenv("HEIMDALL_LLM", "nube")
     assert isinstance(crear_motor(), MotorNube)
 
@@ -316,10 +316,10 @@ def test_catalogo_habilita_roles_de_forma_independiente():
     assert enrutador is not None
     assert ocr is not None
     assert voz is not None
-    assert texto.nombre == "modelo-a"
-    assert enrutador.nombre == "modelo-router"
-    assert ocr.nombre == "modelo-b"
-    assert voz.nombre == "modelo-voz"
+    assert texto.nombre == "modelo-a:latest"
+    assert enrutador.nombre == "modelo-router:latest"
+    assert ocr.nombre == "modelo-b:latest"
+    assert voz.nombre == "modelo-voz:latest"
 
 
 def test_fabrica_planificador_deja_roles_apagados_si_no_hay_modelos():

@@ -37,9 +37,16 @@ escribe números ni fechas.
 `HEIMDALL_MODELO_ENRUTADOR`, `HEIMDALL_MODELO_VISION`,
 `HEIMDALL_MODELO_OCR` y `HEIMDALL_MODELO_VOZ`. No asigna nombres por defecto;
 los roles sin variable quedan apagados y no impiden usar otros roles.
+Los nombres sin etiqueta se guardan normalizados con `:latest`; la carga y
+descarga comparan esa forma con los nombres informados por `/api/ps`.
 `crear_planificador` usa este catálogo. El selector histórico `HEIMDALL_LLM`
 sigue apagado por defecto; al elegir Ollama para el chatbot, también se requiere
 un `HEIMDALL_MODELO_TEXTO` explícito.
+
+El rol VOZ aún no tiene motor de transcripción operativo: el planificador
+rechaza su ejecución explícitamente con `MotorVozNoDisponible`, en vez de
+enviar audio al intérprete de texto. `MotorOllamaVoz` permanece como esqueleto
+sin llamadas de red.
 
 | Rol | Espera lock | Descarga+verif. | Carga+verif. | Inferencia | Confianza |
 |---|---:|---:|---:|---:|---:|

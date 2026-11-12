@@ -9,6 +9,10 @@ AUDIO_MAX_BYTES = 20_000_000
 AUDIO_MAX_DURACION = 300
 
 
+class MotorVozNoDisponible(NotImplementedError):
+    """Se solicitó transcripción, pero aún no hay un motor operativo."""
+
+
 class ErrorAudio(ValueError):
     """El audio excede los límites o no es un WAV PCM válido."""
 
@@ -50,7 +54,7 @@ class MotorVozFalso(MotorVoz):
 
 
 class MotorOllamaVoz(MotorVoz):
-    """Esqueleto local para una futura integración de transcripción con Ollama."""
+    """Esqueleto sin integración de red; no es un motor operativo."""
 
     def transcribir(self, audio: Path) -> str:
         """Valida el archivo y señala que la integración aún no está disponible.
@@ -58,10 +62,10 @@ class MotorOllamaVoz(MotorVoz):
         Raises:
             ErrorAudio: Si el archivo no cumple los límites.
             OSError: Si no se puede leer el archivo.
-            NotImplementedError: La transcripción con Ollama aún no está implementada.
+            MotorVozNoDisponible: La transcripción aún no está implementada.
         """
         validar_audio(audio)
-        raise NotImplementedError("La transcripción con Ollama está pendiente.")
+        raise MotorVozNoDisponible("La transcripción con Ollama está pendiente.")
 
 
 def validar_audio(ruta: Path) -> float:

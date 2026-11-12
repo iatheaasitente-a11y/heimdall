@@ -8,6 +8,7 @@ from app.llm.roles import (
     PoliticaRol,
     RolModelo,
     confianza_suficiente,
+    normalizar_nombre_modelo,
 )
 
 
@@ -36,7 +37,7 @@ def test_catalogo_deja_apagados_los_roles_no_inyectados():
     texto = catalogo.obtener(RolModelo.TEXTO)
 
     assert texto is not None
-    assert texto.nombre == "modelo-elegido"
+    assert texto.nombre == "modelo-elegido:latest"
     assert catalogo.obtener(RolModelo.OCR) is None
 
 
@@ -57,7 +58,26 @@ def test_catalogo_recorta_el_nombre_de_modelo_inyectado():
     )
 
     assert configuracion is not None
-    assert configuracion.nombre == "modelo-elegido"
+    assert configuracion.nombre == "modelo-elegido:latest"
+
+
+@pytest.mark.parametrize(
+    "entrada,esperado",
+    [
+        (" modelo ", "modelo:latest"),
+        ("modelo:latest", "modelo:latest"),
+        ("modelo:3b", "modelo:3b"),
+        ("equipo/modelo", "equipo/modelo:latest"),
+        ("equipo/modelo:3b", "equipo/modelo:3b"),
+    ],
+)
+def test_normaliza_etiqueta_sin_alterar_etiquetas_existentes(entrada, esperado):
+    assert normalizar_nombre_modelo(entrada) == esperado
+
+
+def test_rechaza_etiqueta_de_modelo_vacia():
+    with pytest.raises(ValueError, match="etiqueta"):
+        normalizar_nombre_modelo("modelo:")
 
 
 @pytest.mark.parametrize(

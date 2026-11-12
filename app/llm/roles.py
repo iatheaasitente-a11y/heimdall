@@ -29,6 +29,26 @@ class RolModelo(StrEnum):
     VOZ = "voz"
 
 
+def normalizar_nombre_modelo(nombre: str) -> str:
+    """Añade la etiqueta ``:latest`` cuando el modelo no especifica una.
+
+    Raises:
+        TypeError: Si el nombre no es texto.
+        ValueError: Si el nombre está vacío o termina con una etiqueta vacía.
+    """
+    if not isinstance(nombre, str):
+        raise TypeError("El nombre del modelo debe ser texto.")
+    nombre = nombre.strip()
+    if not nombre:
+        raise ValueError("El nombre del modelo no puede estar vacío.")
+    ultima_parte = nombre.rsplit("/", 1)[-1]
+    if ":" not in ultima_parte:
+        return f"{nombre}:latest"
+    if ultima_parte.endswith(":"):
+        raise ValueError("La etiqueta del modelo no puede estar vacía.")
+    return nombre
+
+
 @dataclass(frozen=True)
 class PoliticaRol:
     """Límites de espera y confianza para un rol."""
@@ -73,15 +93,11 @@ class ModeloConfigurado:
             ValueError: Si el nombre está vacío.
             TypeError: Si el nombre o la política tienen tipos inválidos.
         """
-        if not isinstance(self.nombre, str):
-            raise TypeError("El nombre del modelo debe ser texto.")
-        if not self.nombre.strip():
-            raise ValueError("El nombre del modelo no puede estar vacío.")
         if not isinstance(self.politica, PoliticaRol):
             raise TypeError("La política del modelo debe ser PoliticaRol.")
         if self.rol is not None and not isinstance(self.rol, RolModelo):
             raise TypeError("El rol del modelo debe ser RolModelo.")
-        object.__setattr__(self, "nombre", self.nombre.strip())
+        object.__setattr__(self, "nombre", normalizar_nombre_modelo(self.nombre))
 
 
 _POLITICAS = MappingProxyType(

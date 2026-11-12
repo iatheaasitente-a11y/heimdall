@@ -11,6 +11,7 @@ from app.llm.interfaz import ErrorRespuestaLLM, RespuestaEstructurada
 from app.llm.planificador import PlanificadorModelos
 from app.llm.roles import Catalogo, PoliticaRol, RolModelo
 from app.llm.vision import validar_imagen
+from app.llm.voz import MotorVozNoDisponible
 
 
 class MotorLocalFalso:
@@ -117,7 +118,7 @@ def test_rol_apagado_no_crea_motor_ni_afecta_otro_rol():
     respuesta = planificador.interpretar(RolModelo.TEXTO, [], [])
 
     assert respuesta is not None
-    assert cargados == {"modelo-texto"}
+    assert cargados == {"modelo-texto:latest"}
     assert any(llamada[0] == "inferir" for llamada in llamadas)
 
 
@@ -129,8 +130,8 @@ def test_carga_infiere_y_aplica_timeout_del_rol():
     respuesta = planificador.interpretar(RolModelo.ENRUTADOR, [], [])
 
     assert respuesta is not None
-    assert ("cargar", "modelo-router", 60) in llamadas
-    assert ("inferir", "modelo-router") in llamadas
+    assert ("cargar", "modelo-router:latest", 60) in llamadas
+    assert ("inferir", "modelo-router:latest") in llamadas
 
 
 def test_fabrica_por_defecto_pasa_timeouts_del_rol_sin_red():
@@ -162,8 +163,8 @@ def test_fabrica_por_defecto_pasa_timeouts_del_rol_sin_red():
     assert urlopen.call_args_list[3].kwargs["timeout"] == 60
     solicitud_carga = json.loads(urlopen.call_args_list[1].args[0].data)
     solicitud_inferencia = json.loads(urlopen.call_args_list[3].args[0].data)
-    assert solicitud_carga["model"] == "modelo-ocr"
-    assert solicitud_inferencia["model"] == "modelo-ocr"
+    assert solicitud_carga["model"] == "modelo-ocr:latest"
+    assert solicitud_inferencia["model"] == "modelo-ocr:latest"
 
 
 def test_planificador_descarga_y_verifica_antes_de_cargar_otro_modelo():
@@ -206,8 +207,8 @@ def test_planificador_descarga_y_verifica_antes_de_cargar_otro_modelo():
         "keep_alive": 0,
         "stream": False,
     }
-    assert json.loads(llamadas[3].data)["model"] == "modelo-ocr"
-    assert json.loads(llamadas[5].data)["model"] == "modelo-ocr"
+    assert json.loads(llamadas[3].data)["model"] == "modelo-ocr:latest"
+    assert json.loads(llamadas[5].data)["model"] == "modelo-ocr:latest"
 
 
 def test_reutiliza_modelo_ya_cargado_sin_descargarlo():
@@ -219,6 +220,30 @@ def test_reutiliza_modelo_ya_cargado_sin_descargarlo():
     assert planificador.interpretar(RolModelo.TEXTO, [], []) is not None
 
     assert not any(llamada[0] in {"cargar", "descargar"} for llamada in llamadas)
+
+
+def test_reutiliza_modelo_cargado_con_etiqueta_latest_explicita():
+    planificador, cargados, llamadas, _ = _crear_planificador(
+        {RolModelo.TEXTO: "modelo-texto"},
+        {"modelo-texto:latest"},
+    )
+
+    assert planificador.interpretar(RolModelo.TEXTO, [], []) is not None
+
+    assert cargados == {"modelo-texto:latest"}
+    assert not any(llamada[0] in {"cargar", "descargar"} for llamada in llamadas)
+
+
+def test_rol_voz_no_se_interpreta_como_texto_ni_consulta_ollama():
+    planificador = PlanificadorModelos(
+        Catalogo({RolModelo.VOZ: "modelo-voz"}),
+    )
+
+    with patch("app.llm.ollama.urlopen") as urlopen:
+        with pytest.raises(MotorVozNoDisponible, match="transcripción no está implementada"):
+            planificador.interpretar(RolModelo.VOZ, [], [])
+
+    urlopen.assert_not_called()
 
 
 def test_descarga_y_verifica_el_modelo_anterior_antes_de_cargar_otro():

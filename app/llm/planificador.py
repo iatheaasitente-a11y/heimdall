@@ -13,8 +13,10 @@ from app.llm.roles import (
     ModeloConfigurado,
     RolModelo,
     confianza_suficiente,
+    normalizar_nombre_modelo,
 )
 from app.llm.vision import ErrorImagen, MotorOllamaVision, validar_imagen
+from app.llm.voz import MotorVozNoDisponible
 
 
 class _MotorGestionable(Protocol):
@@ -157,7 +159,11 @@ class PlanificadorModelos:
         self._comprobar_plazo(inicio_descarga, politica.descarga, "descarga")
         while True:
             anterior = next(
-                (nombre for nombre in cargados if nombre != configuracion.nombre),
+                (
+                    nombre
+                    for nombre in cargados
+                    if normalizar_nombre_modelo(nombre) != configuracion.nombre
+                ),
                 None,
             )
             if anterior is None:
@@ -167,19 +173,28 @@ class PlanificadorModelos:
             restante = self._restante(inicio_descarga, politica.descarga, "descarga")
             cargados = motor.modelos_cargados(timeout=restante)
             self._comprobar_plazo(inicio_descarga, politica.descarga, "descarga")
-            if anterior in cargados:
+            if any(
+                normalizar_nombre_modelo(nombre)
+                == normalizar_nombre_modelo(anterior)
+                for nombre in cargados
+            ):
                 raise ErrorRespuestaLLM(
                     f"No se pudo confirmar la descarga del modelo {anterior}."
                 )
 
-        if configuracion.nombre in cargados:
+        if any(
+            normalizar_nombre_modelo(nombre) == configuracion.nombre
+            for nombre in cargados
+        ):
             return
         inicio_carga = self._reloj()
         motor.calentar(timeout=politica.carga)
         restante = self._restante(inicio_carga, politica.carga, "carga")
         cargados = motor.modelos_cargados(timeout=restante)
         self._comprobar_plazo(inicio_carga, politica.carga, "carga")
-        if set(cargados) != {configuracion.nombre}:
+        if {
+            normalizar_nombre_modelo(nombre) for nombre in cargados
+        } != {configuracion.nombre}:
             raise ErrorRespuestaLLM(
                 f"No se pudo confirmar la carga exclusiva de {configuracion.nombre}."
             )
@@ -212,6 +227,10 @@ def _crear_motor(
     configuracion: ModeloConfigurado,
 ) -> MotorOllama | MotorOllamaVision:
     """Crea un motor local sin elegir un modelo implícito."""
+    if configuracion.rol == RolModelo.VOZ:
+        raise MotorVozNoDisponible(
+            "El rol VOZ está configurado, pero la transcripción no está implementada."
+        )
     clase = (
         MotorOllamaVision
         if configuracion.rol in {RolModelo.VISION, RolModelo.OCR}
