@@ -17,7 +17,8 @@ y conversaciones.
 ## Reglas
 1. `app/domain` es puro: sin SQL, sin FastAPI, sin librerías de IA, sin I/O.
 2. Los datos externos entran por esquemas Pydantic antes de crear objetos de dominio.
-3. El modelo de lenguaje nunca accede a la base de datos; solo llama a herramientas que usan servicios.
+3. El modelo de lenguaje nunca accede a la base de datos; solo llama a
+   herramientas que usan servicios.
 4. Los agentes no contienen lógica de negocio: delegan en servicios.
 5. Fechas siempre con zona horaria; se guardan en UTC.
 
@@ -28,8 +29,8 @@ y conversaciones.
 4. El modelo, si se usa, solo redacta la respuesta con ese resultado.
 
 ## Fronteras de importación
-Las vigila `tests/test_importaciones.py`, que analiza los `import` con `ast` sin ejecutar código.
-Cada fallo indica archivo y línea.
+Las vigila `tests/test_importaciones.py`, que analiza los `import` con `ast`
+sin ejecutar código. Cada fallo indica archivo y línea.
 
 | Capa | Puede importar | Bibliotecas externas |
 |---|---|---|
@@ -39,11 +40,12 @@ Cada fallo indica archivo y línea.
 | `repositories` | `domain`, `database`, `repositories` | No |
 | `services` | `domain`, `schemas`, `repositories.interfaces`, `services` | No |
 | `tools` | `domain`, `schemas`, `services`, `tools` | Sí |
-| `llm` (futura) | solo `llm` | Sí |
+| `llm` | solo `llm` | No |
 | `agents` (futura) | `domain.message`, `llm`, `tools`, `agents` | Sí |
 
 - `sqlite3` solo se usa en `database` y `repositories`.
-- Las implementaciones `sqlite_*` solo las importa `app/composicion.py`, que es el único archivo exento.
+- Las implementaciones `sqlite_*` solo las importa `app/composicion.py`,
+  que es el único archivo exento.
 - Para permitir una dependencia nueva hay que ampliar `REGLAS` en el test y dejarlo escrito aquí.
 
 ## Herramientas
@@ -53,3 +55,8 @@ esquema JSON. El `usuario_id` se pasa por separado desde el sistema y nunca
 forma parte de los argumentos del modelo. Las herramientas delegan en servicios
 y convierten sus resultados a JSON; los `ErrorDeServicio` se devuelven como
 errores estructurados. Las operaciones internas de recordatorios no se exponen.
+
+La capa `app/llm` devuelve únicamente intención, campos y confianza. Está
+apagada por defecto; Ollama usa `urllib` con timeout y sin reintentos, mientras
+que el motor nube permanece como esqueleto sin credenciales ni red. Los frenos
+limitan consultas por conversación y descartan respuestas de baja confianza.
