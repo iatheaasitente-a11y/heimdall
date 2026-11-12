@@ -108,25 +108,38 @@ def test_pregunta_por_la_duracion_que_falta_para_crear_evento(entorno):
 
 
 def test_programa_recordatorio_con_fecha_y_hora_explicitas(entorno):
-    resultado = procesar(
+    propuesta = procesar(
         entorno,
-        "recuérdame llamar a mamá el jueves a las diez de la mañana",
+        "recu\u00e9rdame llamar a mam\u00e1 el jueves a las diez de la ma\u00f1ana",
     )
 
-    assert resultado["ok"] is True
-    assert resultado["datos"]["mensaje"] == "llamar a mamá"
-    assert resultado["datos"]["programado_para"] == "2026-10-29T10:00:00+01:00"
+    assert propuesta["ok"] is True
+    assert "llamar a mam\u00e1" in propuesta["datos"]
+    assert "Responde si para confirmar" in propuesta["datos"]
+
+    creado = procesar(entorno, "si")
+
+    assert creado["ok"] is True
+    assert creado["datos"]["mensaje"] == "llamar a mam\u00e1"
+    assert creado["datos"]["programado_para"] == "2026-10-29T10:00:00+01:00"
+
 
 
 def test_asume_manana_para_hora_ambigua_de_recordatorio(entorno):
-    resultado = procesar(
+    propuesta = procesar(
         entorno,
         "recu\u00e9rdame llamar a mam\u00e1 el jueves a las diez",
     )
 
-    assert resultado["ok"] is True
-    assert resultado["datos"]["mensaje"] == "llamar a mam\u00e1"
-    assert resultado["datos"]["programado_para"] == "2026-10-29T10:00:00+01:00"
+    assert propuesta["ok"] is True
+    assert "llamar a mam\u00e1" in propuesta["datos"]
+    assert "Responde si para confirmar" in propuesta["datos"]
+
+    creado = procesar(entorno, "si")
+
+    assert creado["ok"] is True
+    assert creado["datos"]["mensaje"] == "llamar a mam\u00e1"
+    assert creado["datos"]["programado_para"] == "2026-10-29T10:00:00+01:00"
 
 
 

@@ -13,6 +13,7 @@ from app.domain.lenguaje_fechas import (
     resolver_fecha_hora,
     resolver_hora,
 )
+from app.agents.recordatorio_evento import detectar_recordatorio_de_evento
 from app.tools.registro import RegistroHerramientas
 
 _NUMERO = r"\d+(?:[.,]\d+)?|una?|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce"
@@ -267,6 +268,19 @@ class ReglasDeterministas:
                 "eventos"
             ]
             return {"ok": True, "datos": recurrentes["propuesta"]}
+
+        recordatorio_evento = detectar_recordatorio_de_evento(
+            self._herramientas,
+            usuario_id,
+            normalizado,
+            self._ahora(usuario_id),
+        )
+        if recordatorio_evento is not None:
+            self._acciones_pendientes[usuario_id] = recordatorio_evento
+            return {
+                "ok": True,
+                "datos": recordatorio_evento["propuesta"],
+            }
 
         if _PATRON_RECORDATORIO.search(normalizado):
             return self._crear_recordatorio(usuario_id, texto)

@@ -198,6 +198,66 @@ class ServicioAgenda:
         horario = Horario(self._eventos.listar_por_usuario(usuario_id))
         return horario.celdas_del_dia(dia, usuario.zona(), minutos)
 
+    def proximo_evento(
+        self,
+        usuario_id: UUID,
+        ahora: datetime,
+    ) -> Evento | None:
+        """Devuelve el siguiente evento activo que aun no ha terminado."""
+
+        exigir_usuario(self._usuarios.obtener, usuario_id)
+        eventos = [
+            evento
+            for evento in self._eventos.listar_por_usuario(usuario_id)
+            if evento.esta_activo() and evento.termina > ahora
+        ]
+        eventos.sort(key=lambda evento: evento.comienza)
+        return eventos[0] if eventos else None
+
+    def huecos_libres(
+        self,
+        usuario_id: UUID,
+        dia: date,
+        desde: datetime,
+        hasta: datetime,
+        minutos: int = 30,
+    ) -> list[dict[str, str]]:
+        """Devuelve los huecos libres de al menos ``minutos`` en una franja."""
+
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
+        eventos = sorted(
+            self._eventos.listar_activos_del_dia(
+                usuario_id,
+                dia,
+                usuario.zona(),
+            ),
+            key=lambda evento: evento.comienza,
+        )
+
+        huecos: list[tuple[datetime, datetime]] = []
+        cursor = desde
+
+        for evento in eventos:
+            if evento.termina <= desde or evento.comienza >= hasta:
+                continue
+
+            if evento.comienza > cursor:
+                huecos.append((cursor, min(evento.comienza, hasta)))
+
+            cursor = max(cursor, evento.termina)
+
+        if cursor < hasta:
+            huecos.append((cursor, hasta))
+
+        return [
+            {
+                "comienza": inicio.isoformat(),
+                "termina": fin.isoformat(),
+            }
+            for inicio, fin in huecos
+            if fin - inicio >= timedelta(minutes=minutos)
+        ]
+
     def _exigir_sin_conflicto(self, evento: Evento) -> None:
         """Lanza ``ConflictoDeHorario`` si un evento activo choca con otro."""
         if not evento.esta_activo():

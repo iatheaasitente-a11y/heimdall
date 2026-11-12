@@ -82,7 +82,7 @@ def herramienta(entorno, nombre):
 
 def test_catalogo_registra_todas_las_herramientas_iniciales(entorno):
     nombres = {item.nombre for item in entorno[0].listar()}
-    assert len(nombres) == 24
+    assert len(nombres) == 25
     assert {
         "agenda_crear_evento",
         "habitos_listar",
