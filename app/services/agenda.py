@@ -34,8 +34,9 @@ class ServicioAgenda:
     responde igual que si no existiera, para no revelar que existe.
 
     Si se le da un repositorio de recordatorios, mantiene coherentes los avisos
-    de cada evento: al cancelarlo o completarlo cancela los pendientes y al
-    reprogramarlo los desplaza lo mismo que se movió el evento.
+    de cada evento: al crearlo genera un aviso automático para su inicio, al
+    cancelarlo o completarlo cancela los pendientes y al reprogramarlo los
+    desplaza lo mismo que se movió el evento.
     """
 
     def __init__(
@@ -60,6 +61,9 @@ class ServicioAgenda:
     ) -> Evento:
         """Crea y guarda un evento si no choca con ninguno activo del usuario.
 
+        Si hay repositorio de recordatorios, crea también un aviso automático
+        para el inicio del evento.
+
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
             ValueError: Si ``termina`` no es posterior a ``comienza``.
@@ -67,7 +71,7 @@ class ServicioAgenda:
                 llevan zona horaria.
             ConflictoDeHorario: Si se solapa con otro evento activo.
         """
-        exigir_usuario(self._usuarios.obtener, usuario_id)
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
         evento = Evento(
             usuario_id,
             titulo.strip(),
@@ -79,6 +83,7 @@ class ServicioAgenda:
         EventoSchema.model_validate(evento)
         self._exigir_sin_conflicto(evento)
         self._eventos.guardar(evento)
+        self._crear_recordatorio_automatico(usuario, evento)
         return evento
 
     def obtener_evento(self, usuario_id: UUID, evento_id: UUID) -> Evento:
@@ -133,7 +138,7 @@ class ServicioAgenda:
         desplazan lo mismo que se mueve su inicio.
 
         Raises:
-            EventoNoEncontrado: Si no existe o pertenece a otro usuario.
+            EventoNoEncontrado: Si el evento no existe o pertenece a otro usuario.
             EventoNoActivo: Si el evento está cancelado o completado.
             ValueError: Si ``termina`` no es posterior a ``comienza``.
             pydantic.ValidationError: Si las fechas no llevan zona horaria.
@@ -265,6 +270,19 @@ class ServicioAgenda:
         horario = Horario(self._eventos.listar_por_usuario(evento.usuario_id))
         if horario.hay_conflicto(evento):
             raise ConflictoDeHorario(evento.titulo)
+
+    def _crear_recordatorio_automatico(self, usuario, evento: Evento) -> None:
+        """Crea un aviso para el inicio del evento si hay repositorio de recordatorios."""
+        if self._recordatorios is None:
+            return
+        hora = evento.comienza.astimezone(usuario.zona())
+        recordatorio = Recordatorio(
+            usuario.id,
+            f"{evento.titulo} empieza a las {hora:%H:%M}",
+            evento.comienza,
+            evento_id=evento.id,
+        )
+        self._recordatorios.guardar(recordatorio)
 
     def _recordatorios_pendientes(self, evento_id: UUID) -> list[Recordatorio]:
         """Devuelve los recordatorios pendientes de un evento (vacío si no hay repositorio)."""
