@@ -115,9 +115,18 @@ class ReglasDeterministas:
         if pendiente is not None:
             if normalizado in {"si", "vale", "confirmo", "confirmar"}:
                 self._eventos_pendientes.pop(usuario_id)
-                return self._herramientas.obtener(
+                resultado = self._herramientas.obtener(
                     "agenda_crear_evento"
                 ).ejecutar(usuario_id, pendiente)
+                if resultado.get("ok") is True and isinstance(
+                    resultado.get("datos"), dict
+                ):
+                    ahora = self._ahora(usuario_id)
+                    zona = ahora.tzinfo if ahora is not None else None
+                    texto = _texto_evento_creado(resultado["datos"], zona)
+                    if texto is not None:
+                        return {"ok": True, "datos": texto}
+                return resultado
             if normalizado in {"no", "cancela", "cancelar"}:
                 self._eventos_pendientes.pop(usuario_id)
                 return {
@@ -174,13 +183,19 @@ class ReglasDeterministas:
                 "datos": f"No tienes eventos {etiqueta}.",
             }
 
-        lineas = [f"Tienes {len(eventos)} eventos {etiqueta}:"]
+        ahora = self._ahora(usuario_id)
+        zona = ahora.tzinfo if ahora is not None else None
+        cantidad = (
+            "un evento"
+            if len(eventos) == 1
+            else f"{len(eventos)} eventos"
+        )
+        lineas = [f"Tienes {cantidad} {etiqueta}:"]
+
         for evento in eventos:
-            if not isinstance(evento, dict):
-                continue
-            titulo = evento.get("titulo", "Evento")
-            comienza = evento.get("comienza", "")
-            lineas.append(f"\u2022 {titulo} \u2014 {comienza}")
+            texto = _texto_evento(evento, zona)
+            if texto is not None:
+                lineas.append(texto)
 
         return {"ok": True, "datos": "\n".join(lineas)}
 
@@ -641,3 +656,64 @@ def _rango_de_periodo(texto: str, hoy: date) -> tuple[date, date, str] | None:
         return sabado, sabado + timedelta(days=1), "este fin de semana"
 
     return None
+
+
+def _a_zona(valor: object, zona: object) -> datetime | None:
+    """Convierte una fecha u hora a la zona horaria del usuario."""
+
+    if isinstance(valor, datetime):
+        return valor.astimezone(zona) if zona is not None else valor
+
+    if isinstance(valor, str):
+        try:
+            fecha = datetime.fromisoformat(valor)
+        except ValueError:
+            return None
+        return fecha.astimezone(zona) if zona is not None else fecha
+
+    return None
+
+
+def _texto_evento(evento: object, zona: object) -> str | None:
+    """Formatea un evento para un listado natural."""
+
+    if not isinstance(evento, dict):
+        return None
+
+    titulo = evento.get("titulo", "Evento")
+    comienza = _a_zona(evento.get("comienza"), zona)
+    termina = _a_zona(evento.get("termina"), zona)
+
+    if comienza is None:
+        return f"\u2022 {titulo}"
+
+    texto = f"\u2022 {titulo} \u2014 {comienza.strftime('%d/%m/%Y %H:%M')}"
+
+    if termina is not None:
+        texto += f" a {termina.strftime('%H:%M')}"
+
+    return texto
+
+
+def _texto_evento_creado(evento: object, zona: object) -> str | None:
+    """Formatea la confirmacion de un evento creado."""
+
+    if not isinstance(evento, dict):
+        return None
+
+    titulo = evento.get("titulo", "Evento")
+    comienza = _a_zona(evento.get("comienza"), zona)
+    termina = _a_zona(evento.get("termina"), zona)
+
+    if comienza is None:
+        return f"Evento creado: {titulo}."
+
+    texto = (
+        f"Evento creado: {titulo}, "
+        f"{comienza.strftime('%d/%m/%Y %H:%M')}"
+    )
+
+    if termina is not None:
+        texto += f" a {termina.strftime('%H:%M')}"
+
+    return texto + "."
