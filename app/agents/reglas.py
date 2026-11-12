@@ -354,21 +354,43 @@ class ReglasDeterministas:
         return self._ahora_por_usuario(usuario_id)
 
 
-def _es_resumen_de_hoy(texto: str) -> bool:
-    """Reconoce consultas breves sobre los elementos del día actual."""
-    return any(
-        frase in texto
-        for frase in (
-            "que tengo hoy",
-            "que tengo para hoy",
-            "que hay hoy",
-            "lista lo de hoy",
-            "listar lo de hoy",
-            "lista mis eventos de hoy",
-            "que hay para hoy",
-        )
-    )
+_PATRON_RESUMEN_HOY = re.compile(
+    r"\b(?:"
+    r"que\s+(?:tengo|hay|eventos?\s+tengo|eventos?\s+hay|citas?\s+tengo|"
+    r"citas?\s+hay|recordatorios?\s+tengo|recordatorios?\s+hay)"
+    r"|"
+    r"(?:mis\s+)?(?:eventos?|citas?|agenda|recordatorios?)\s+"
+    r"(?:de|para|del)\s+hoy"
+    r"|"
+    r"(?:lista|listar|muestrame|ensename)\s+"
+    r"(?:lo\s+de\s+hoy|mi\s+agenda\s+de\s+hoy|mis\s+eventos\s+de\s+hoy)"
+    r"|"
+    r"resumen\s+(?:de\s+)?(?:hoy|el\s+dia)"
+    r")\b",
+    re.IGNORECASE,
+)
 
+
+_PATRON_RESUMEN_HOY = re.compile(
+    r"\b(?:"
+    r"que\s+(?:tengo|hay|eventos?\s+tengo|eventos?\s+hay|citas?\s+tengo|"
+    r"citas?\s+hay|recordatorios?\s+tengo|recordatorios?\s+hay)"
+    r"|"
+    r"(?:mis\s+)?(?:eventos?|citas?|agenda|recordatorios?)\s+"
+    r"(?:de|para|del)\s+hoy"
+    r"|"
+    r"(?:lista|listar|muestrame|ensename)\s+"
+    r"(?:lo\s+de\s+hoy|mi\s+agenda\s+de\s+hoy|mis\s+eventos\s+de\s+hoy)"
+    r"|"
+    r"resumen\s+(?:de\s+)?(?:hoy|el\s+dia)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _es_resumen_de_hoy(texto: str) -> bool:
+    """Reconoce consultas breves sobre los elementos del dia actual."""
+    return _PATRON_RESUMEN_HOY.search(texto) is not None
 
 def _es_consulta_habito(texto: str) -> bool:
     """Reconoce preguntas de progreso o racha que mencionan un hábito."""
