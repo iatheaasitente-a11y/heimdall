@@ -2,6 +2,7 @@
 
 import time
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from threading import Lock
 from typing import Protocol
 
@@ -13,6 +14,7 @@ from app.llm.roles import (
     RolModelo,
     confianza_suficiente,
 )
+from app.llm.vision import ErrorImagen, MotorOllamaVision, validar_imagen
 
 
 class _MotorGestionable(Protocol):
@@ -99,6 +101,50 @@ class PlanificadorModelos:
         finally:
             self._cerrojo.release()
 
+    def interpretar_imagen(
+        self,
+        rol: RolModelo,
+        imagen: Path,
+        instruccion: str,
+    ) -> RespuestaEstructurada | None:
+        """Interpreta una imagen mediante el rol VISION u OCR configurado.
+
+        Raises:
+            ValueError: Si se usa un rol distinto de VISION u OCR.
+            ErrorImagen: Si la imagen excede los límites o no es JPEG/PNG válido.
+            TimeoutError: Si no se obtiene el lock o se excede un plazo.
+            OSError: Si no se puede leer la imagen o falla Ollama.
+            ErrorRespuestaLLM: Si no se puede verificar la carga del modelo.
+        """
+        if rol not in {RolModelo.VISION, RolModelo.OCR}:
+            raise ValueError("Las imágenes requieren el rol VISION u OCR.")
+        configuracion = self._catalogo.obtener(rol)
+        if configuracion is None:
+            return None
+        validar_imagen(imagen)
+        politica = configuracion.politica
+        if not self._cerrojo.acquire(timeout=politica.bloqueo):
+            raise TimeoutError(f"Se agotó la espera del planificador para {rol.value}.")
+        try:
+            motor = self._fabrica_motor(configuracion)
+            self._preparar_modelo(motor, configuracion)
+            interpretar_imagen = getattr(motor, "interpretar_imagen", None)
+            if not callable(interpretar_imagen):
+                raise TypeError("El motor configurado no admite entradas de imagen.")
+            inicio = self._reloj()
+            respuesta = interpretar_imagen(imagen, instruccion)
+            self._comprobar_plazo(inicio, politica.inferencia, "inferencia")
+            if not isinstance(respuesta, RespuestaEstructurada):
+                return None
+            if not confianza_suficiente(
+                getattr(respuesta, "confianza", None),
+                politica.confianza_minima,
+            ):
+                return None
+            return respuesta
+        finally:
+            self._cerrojo.release()
+
     def _preparar_modelo(
         self,
         motor: _MotorGestionable,
@@ -162,9 +208,13 @@ class PlanificadorModelos:
             raise TimeoutError(f"Se agotó el plazo de {nombre} del planificador.")
 
 
-def _crear_motor(configuracion: ModeloConfigurado) -> MotorOllama:
+def _crear_motor(
+    configuracion: ModeloConfigurado,
+) -> MotorOllama | MotorOllamaVision:
     """Crea un motor local sin elegir un modelo implícito."""
-    return MotorOllama(
-        modelo=configuracion.nombre,
-        timeout=configuracion.politica.inferencia,
+    clase = (
+        MotorOllamaVision
+        if configuracion.rol in {RolModelo.VISION, RolModelo.OCR}
+        else MotorOllama
     )
+    return clase(modelo=configuracion.nombre, timeout=configuracion.politica.inferencia)

@@ -64,6 +64,7 @@ class ModeloConfigurado:
 
     nombre: str
     politica: PoliticaRol
+    rol: RolModelo | None = None
 
     def __post_init__(self) -> None:
         """Rechaza nombres vacíos o políticas inválidas.
@@ -78,6 +79,8 @@ class ModeloConfigurado:
             raise ValueError("El nombre del modelo no puede estar vacío.")
         if not isinstance(self.politica, PoliticaRol):
             raise TypeError("La política del modelo debe ser PoliticaRol.")
+        if self.rol is not None and not isinstance(self.rol, RolModelo):
+            raise TypeError("El rol del modelo debe ser RolModelo.")
         object.__setattr__(self, "nombre", self.nombre.strip())
 
 
@@ -115,7 +118,11 @@ class Catalogo:
                 raise TypeError("Las claves del catálogo deben ser RolModelo.")
             if rol not in politicas_por_rol:
                 raise ValueError(f"No hay política configurada para {rol.value}.")
-            configurados[rol] = ModeloConfigurado(nombre, politicas_por_rol[rol])
+            configurados[rol] = ModeloConfigurado(
+                nombre,
+                politicas_por_rol[rol],
+                rol,
+            )
         self._modelos = MappingProxyType(configurados)
 
     def obtener(self, rol: RolModelo) -> ModeloConfigurado | None:

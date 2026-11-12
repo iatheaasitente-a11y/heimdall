@@ -86,6 +86,12 @@ la herramienta y sus argumentos pertenecen al catálogo; al motor solo pasa los
 últimos cuatro turnos y, si hay una aclaración pendiente, la pregunta bajo
 `esperando`.
 
+Los motores de VISION y OCR aceptan rutas locales a imágenes JPEG o PNG.
+`app/llm/vision.py` aplica los límites de tamaño y dimensiones aprobados,
+rechaza enlaces simbólicos y envía la imagen como entrada multimodal a Ollama.
+El contrato de salida sigue siendo intención, campos y confianza; los tests
+usan motores falsos y no requieren Ollama.
+
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
 Las reglas interpretan fechas con `app/domain/lenguaje_fechas.py`; si faltan
 datos, la hora es ambigua o hay varios nombres candidatos, piden aclaración.

@@ -60,6 +60,21 @@ El lock compartido solo coordina planificadores de este proceso. No excluye
 otros procesos ni clientes de Ollama; por tanto, la garantía de un modelo
 cargado no cubre interferencias externas.
 
+## Límites de archivos aprobados por el usuario
+
+- Imagen: máximo 5 MB y 4096 px por lado; solo JPEG y PNG.
+- Audio: máximo 20 MB y 300 s.
+- Se rechazan enlaces simbólicos.
+
+Estos son límites aprobados por el usuario para las fases de visión y voz; no
+son resultados de benchmarks ni se amplían automáticamente.
+
+La fase de visión valida JPEG y PNG locales antes de cargarlos, comprueba los
+límites anteriores y rechaza enlaces simbólicos. VISION y OCR comparten el
+contrato estructurado y el planificador de modelo único; la entrada de imagen
+se envía a Ollama con el motor de visión configurado para cada rol. Las pruebas
+usan motores falsos y respuestas HTTP simuladas, sin red ni servidor Ollama.
+
 ## Fases siguientes
 
 ### Bloque A — Chatbot funcional
