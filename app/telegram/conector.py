@@ -15,6 +15,7 @@ from app.agents.router import Router
 from app.domain.message import Conversacion, RolMensaje
 from app.domain.relations import historial_para_modelo
 from app.services.conversaciones import ServicioConversaciones
+from app.services.recordatorios import ServicioRecordatorios
 from app.services.usuarios import ServicioUsuarios
 from app.telegram.configuracion import ConfiguracionTelegram, normalizar_chat_id
 
@@ -54,6 +55,7 @@ class ConectorTelegram:
         confirmar: Callable[[], None],
         revertir: Callable[[], None],
         pausar_error: Callable[[], None],
+        recordatorios: ServicioRecordatorios | None = None,
         transporte: Transporte | None = None,
     ) -> None:
         """Inyecta configuración, servicios y ciclo transaccional por actualización.
@@ -75,12 +77,17 @@ class ConectorTelegram:
                     "El mapeo debe asociar chats con UUID de usuario."
                 ) from error
             self._chat_a_usuario[normalizar_chat_id(chat_id)] = usuario_id
+        self._usuario_a_chat = {
+            usuario_id: chat_id
+            for chat_id, usuario_id in self._chat_a_usuario.items()
+        }
         self._usuarios = usuarios
         self._conversaciones = conversaciones
         self._router = router
         self._confirmar = confirmar
         self._revertir = revertir
         self._pausar_error = pausar_error
+        self._recordatorios = recordatorios
         self._transporte = _transporte_urllib if transporte is None else transporte
         self._offset: int | None = None
         self._habilitado = bool(
@@ -178,6 +185,34 @@ class ConectorTelegram:
             texto,
             timeout_http,
         )
+
+    def enviar_recordatorios_vencidos(self, timeout_http: float) -> int:
+        """Envia los recordatorios vencidos y los marca como enviados."""
+
+        if self._recordatorios is None or not self._habilitado:
+            return 0
+
+        enviados = 0
+
+        for recordatorio in self._recordatorios.vencidos():
+            chat_id = self._usuario_a_chat.get(recordatorio.usuario_id)
+
+            if chat_id is None:
+                continue
+
+            try:
+                self._enviar_texto(
+                    chat_id,
+                    f"Recordatorio: {recordatorio.mensaje}",
+                    timeout_http,
+                )
+            except ErrorTelegram:
+                continue
+
+            self._recordatorios.marcar_enviado(recordatorio.id)
+            enviados += 1
+
+        return enviados
 
     def ejecutar(
         self,
@@ -473,7 +508,9 @@ def _formatear_resumen(datos: Mapping[str, object]) -> str:
     recordatorios = datos.get("recordatorios") or []
 
     if not eventos and not habitos and not recordatorios:
-        return f"Hoy, {fecha_texto}, no tienes eventos ni recordatorios."
+        return _embellecer(
+            f"Hoy, {fecha_texto}, no tienes eventos ni recordatorios."
+        )
 
     partes = [f"Hoy, {fecha_texto}:"]
 
@@ -497,8 +534,40 @@ def _formatear_resumen(datos: Mapping[str, object]) -> str:
         partes.append("Hábitos pendientes:")
         partes.extend(f"• {nombre}" for nombre in habitos)
 
-    return "\n".join(partes)
+    return _embellecer("\n".join(partes))
 
+
+
+
+def _embellecer(texto: str) -> str:
+    """Mejora la presentacion: mayusculas, vinetas y puntuacion."""
+
+    lineas = []
+
+    for linea in texto.split("\n"):
+        linea = re.sub(
+            r"^(\s*[\u2022\-]\s*)([a-z\u00e1-\u00ff])",
+            lambda coincidencia: (
+                coincidencia.group(1)
+                + coincidencia.group(2).upper()
+            ),
+            linea,
+        )
+
+        if linea and linea[0].isalpha():
+            linea = linea[0].upper() + linea[1:]
+
+        lineas.append(linea)
+
+    texto = "\n".join(lineas)
+
+    texto = re.sub(
+        r"(?<=[.!?]\s)([a-z\u00e1-\u00ff])",
+        lambda coincidencia: coincidencia.group(1).upper(),
+        texto,
+    )
+
+    return texto
 
 def formatear_respuesta(salida: Mapping[str, object]) -> str:
     """Convierte una salida interna a texto y omite identificadores UUID.
@@ -516,7 +585,7 @@ def formatear_respuesta(salida: Mapping[str, object]) -> str:
         } <= set(datos):
             return _formatear_resumen(datos)
         texto = _formatear_valor(datos)
-        return texto or "Solicitud completada."
+        return _embellecer(texto or "Solicitud completada.")
     error = salida.get("error")
     texto = _redactar_uuid(error) if isinstance(error, str) else (
         "No he podido interpretar la solicitud."

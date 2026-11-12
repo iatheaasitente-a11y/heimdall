@@ -39,6 +39,7 @@ class Composicion:
     conversaciones: ServicioConversaciones
     herramientas: RegistroHerramientas
     router: Router
+    recordatorios: ServicioRecordatorios
 
 
 def crear_composicion(
@@ -117,4 +118,5 @@ def crear_composicion(
         conversaciones,
         herramientas,
         Router(agente),
+        recordatorios,
     )
