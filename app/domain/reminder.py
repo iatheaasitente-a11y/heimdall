@@ -1,7 +1,7 @@
 """Modelo de dominio de los recordatorios."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from uuid import UUID, uuid4
 
@@ -16,6 +16,13 @@ class EstadoRecordatorio(StrEnum):
     CANCELADO = "cancelado"
 
 
+class RepeticionRecordatorio(StrEnum):
+    """Patrón de repetición de un recordatorio."""
+
+    SEMANAL = "semanal"
+    MENSUAL = "mensual"
+
+
 @dataclass
 class Recordatorio:
     """Aviso programado para un momento concreto.
@@ -28,6 +35,7 @@ class Recordatorio:
         evento_id: Evento asociado, si el aviso es de un evento.
         habito_id: Hábito asociado, si el aviso es de un hábito.
         estado: Situación actual; por defecto ``PENDIENTE``.
+        repeticion: Patrón de repetición (semanal o mensual), o ``None``.
     """
 
     usuario_id: UUID
@@ -37,6 +45,7 @@ class Recordatorio:
     evento_id: UUID | None = None
     habito_id: UUID | None = None
     estado: EstadoRecordatorio = EstadoRecordatorio.PENDIENTE
+    repeticion: RepeticionRecordatorio | None = None
 
     def marcar_enviado(self) -> None:
         """Pasa el recordatorio de ``PENDIENTE`` a ``ENVIADO``.
@@ -67,6 +76,32 @@ class Recordatorio:
         if self.estado != EstadoRecordatorio.PENDIENTE:
             raise TransicionNoPermitida(self.estado, destino)
         self.estado = destino
+
+    def siguiente_ocurrencia(self) -> datetime | None:
+        """Calcula la próxima ocurrencia del recordatorio según su patrón.
+
+        Returns:
+            La próxima fecha programada, o ``None`` si el recordatorio no se repite.
+        """
+        if self.repeticion is None:
+            return None
+        if self.repeticion == RepeticionRecordatorio.SEMANAL:
+            return self.programado_para + timedelta(weeks=1)
+        if self.repeticion == RepeticionRecordatorio.MENSUAL:
+            mes = self.programado_para.month + 1
+            anio = self.programado_para.year
+            if mes > 12:
+                mes = 1
+                anio += 1
+            try:
+                return self.programado_para.replace(year=anio, month=mes)
+            except ValueError:
+                import calendar
+                ultimo_dia = calendar.monthrange(anio, mes)[1]
+                return self.programado_para.replace(
+                    year=anio, month=mes, day=ultimo_dia
+                )
+        return None
 
     def esta_vencido(self, ahora: datetime) -> bool:
         """Indica si sigue pendiente y su hora ya ha llegado o pasado.
