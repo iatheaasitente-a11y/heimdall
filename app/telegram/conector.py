@@ -7,6 +7,7 @@ import re
 from collections.abc import Callable, Mapping
 from typing import Protocol
 from urllib.request import Request, urlopen
+from datetime import date
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -431,6 +432,74 @@ def _id_desde_actualizacion(valor: object) -> str | None:
     return str(valor)
 
 
+def _formatear_resumen(datos: Mapping[str, object]) -> str:
+    """Convierte el resumen del día en una respuesta natural."""
+
+    dias = {
+        0: "lunes",
+        1: "martes",
+        2: "miércoles",
+        3: "jueves",
+        4: "viernes",
+        5: "sábado",
+        6: "domingo",
+    }
+    meses = {
+        1: "enero",
+        2: "febrero",
+        3: "marzo",
+        4: "abril",
+        5: "mayo",
+        6: "junio",
+        7: "julio",
+        8: "agosto",
+        9: "septiembre",
+        10: "octubre",
+        11: "noviembre",
+        12: "diciembre",
+    }
+
+    try:
+        fecha = date.fromisoformat(str(datos.get("dia", "")))
+        fecha_texto = (
+            f"{dias[fecha.weekday()]} {fecha.day} de "
+            f"{meses[fecha.month]} de {fecha.year}"
+        )
+    except (TypeError, ValueError):
+        fecha_texto = str(datos.get("dia", "hoy"))
+
+    eventos = datos.get("eventos") or []
+    habitos = datos.get("habitos_pendientes") or []
+    recordatorios = datos.get("recordatorios") or []
+
+    if not eventos and not habitos and not recordatorios:
+        return f"Hoy, {fecha_texto}, no tienes eventos ni recordatorios."
+
+    partes = [f"Hoy, {fecha_texto}:"]
+
+    if eventos:
+        detalles = []
+        for evento in eventos:
+            if not isinstance(evento, Mapping):
+                continue
+            titulo = evento.get("titulo", "Evento")
+            inicio = evento.get("inicio", "")
+            fin = evento.get("fin", "")
+            detalles.append(f"• {titulo} — {inicio} a {fin}")
+        partes.append("Eventos:")
+        partes.extend(detalles)
+
+    if recordatorios:
+        partes.append("Recordatorios:")
+        partes.extend(f"• {mensaje}" for mensaje in recordatorios)
+
+    if habitos:
+        partes.append("Hábitos pendientes:")
+        partes.extend(f"• {nombre}" for nombre in habitos)
+
+    return "\n".join(partes)
+
+
 def formatear_respuesta(salida: Mapping[str, object]) -> str:
     """Convierte una salida interna a texto y omite identificadores UUID.
 
@@ -438,7 +507,15 @@ def formatear_respuesta(salida: Mapping[str, object]) -> str:
     UUID. Los identificadores que aparezcan en textos se redactan.
     """
     if salida.get("ok") is True:
-        texto = _formatear_valor(salida.get("datos"))
+        datos = salida.get("datos")
+        if isinstance(datos, Mapping) and {
+            "dia",
+            "eventos",
+            "habitos_pendientes",
+            "recordatorios",
+        } <= set(datos):
+            return _formatear_resumen(datos)
+        texto = _formatear_valor(datos)
         return texto or "Solicitud completada."
     error = salida.get("error")
     texto = _redactar_uuid(error) if isinstance(error, str) else (
