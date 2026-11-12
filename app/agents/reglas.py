@@ -108,6 +108,9 @@ class ReglasDeterministas:
     def procesar(self, usuario_id: UUID, texto: str) -> dict[str, object] | None:
         """Resuelve una solicitud reconocida o devuelve ``None`` si no hay regla."""
         normalizado = _normalizar(texto)
+        respuesta_conversacion = _respuesta_conversacion(normalizado)
+        if respuesta_conversacion is not None:
+            return respuesta_conversacion
         if _es_resumen_de_hoy(normalizado):
             return self._herramientas.obtener("resumen_del_dia").ejecutar(
                 usuario_id,
@@ -482,3 +485,43 @@ def _normalizar(texto: str) -> str:
 def _preguntar(mensaje: str) -> dict[str, object]:
     """Representa una aclaración necesaria sin ejecutar una herramienta."""
     return {"ok": False, "error": mensaje}
+
+
+def _respuesta_conversacion(texto: str) -> dict[str, object] | None:
+    """Responde mensajes sociales frecuentes sin consultar el LLM."""
+
+    if re.search(
+        r"\b(hola|buenas|buenos dias|buenas tardes|buenas noches|"
+        r"que tal|como estas|como va)\b",
+        texto,
+    ):
+        return {"ok": True, "datos": "¡Hola! ¿En qué te ayudo?"}
+
+    if re.search(r"\b(quien eres|que eres)\b", texto):
+        return {
+            "ok": True,
+            "datos": (
+                "Soy Fenix, tu asistente personal. Puedo ayudarte con "
+                "agenda, hábitos, objetivos y recordatorios."
+            ),
+        }
+
+    if re.search(
+        r"\b(que puedes hacer|que sabes hacer|ayuda|que haces)\b",
+        texto,
+    ):
+        return {
+            "ok": True,
+            "datos": (
+                "Puedo ayudarte con agenda, hábitos, objetivos y "
+                "recordatorios."
+            ),
+        }
+
+    if re.search(r"\bgracias\b", texto):
+        return {"ok": True, "datos": "¡De nada!"}
+
+    if re.search(r"\b(adios|hasta luego|chao)\b", texto):
+        return {"ok": True, "datos": "¡Hasta luego!"}
+
+    return None
