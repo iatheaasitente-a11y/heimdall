@@ -8,6 +8,7 @@ from unicodedata import combining, normalize
 from uuid import UUID
 
 from app.agents.base import AgenteBase
+from app.agents.agenda_paso_a_paso import AgendaPasoAPaso
 from app.agents.reglas import ReglasDeterministas
 from app.llm.frenos import FrenosLLM
 from app.llm.interfaz import MotorLLM
@@ -53,6 +54,7 @@ class AgentePersonal(AgenteBase):
             if hoy_por_usuario is not None
             else _hoy_local
         )
+        self._agenda_paso_a_paso = AgendaPasoAPaso(crear_evento=self._crear_evento_paso_a_paso)
         self._reglas = ReglasDeterministas(
             herramientas,
             self._hoy_por_usuario,
@@ -98,6 +100,11 @@ class AgentePersonal(AgenteBase):
             if pendiente is not None:
                 return _conservar_pendiente(resultado_regla, pendiente)
             return resultado_regla
+        resultado_agenda = self._agenda_paso_a_paso.procesar(
+            usuario_id, conversacion_id, texto, historial
+        )
+        if resultado_agenda is not None:
+            return resultado_agenda
         if self._frenos is None:
             return None
 
@@ -155,6 +162,13 @@ class AgentePersonal(AgenteBase):
         resultado = herramienta.ejecutar(usuario_id, respuesta.campos)
         return resultado
 
+
+    def _crear_evento_paso_a_paso(
+        self, usuario_id: UUID, datos: dict[str, str]
+    ) -> dict[str, object]:
+        """Delega en la herramienta de crear evento."""
+        herramienta = self._herramientas.obtener("agenda_crear_evento")
+        return herramienta.ejecutar(usuario_id, datos)
 
 def _hoy_local(usuario_id: UUID) -> date:
     """Devuelve la fecha local del proceso si no se inyecta una zona de usuario."""
