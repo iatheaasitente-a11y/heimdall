@@ -195,6 +195,18 @@ class ReglasDeterministas:
                 usuario_id,
                 {"dia": self._hoy(usuario_id)},
             )
+
+        if _es_proxima_cita(normalizado):
+            return self._consultar_proxima_cita(usuario_id)
+
+        peticion_huecos = _detectar_huecos(
+            normalizado,
+            self._ahora(usuario_id),
+        )
+        if peticion_huecos is not None:
+            if peticion_huecos.get("ok") is False:
+                return peticion_huecos
+            return self._consultar_huecos(usuario_id, peticion_huecos)
         accion_pendiente = self._acciones_pendientes.get(usuario_id)
         if accion_pendiente is not None:
             if normalizado in {"si", "vale", "confirmo", "confirmar"}:
@@ -261,6 +273,82 @@ class ReglasDeterministas:
         if _es_consulta_habito(normalizado):
             return self._consultar_habito(usuario_id, normalizado)
         return None
+
+    def _consultar_proxima_cita(self, usuario_id: UUID) -> dict[str, object]:
+        """Consulta y presenta el siguiente evento activo."""
+
+        ahora = self._ahora(usuario_id)
+        try:
+            resultado = self._herramientas.obtener(
+                "agenda_proximo_evento"
+            ).ejecutar(usuario_id, {"ahora": ahora})
+        except KeyError:
+            return None
+
+        if resultado.get("ok") is not True:
+            return resultado
+
+        evento = resultado.get("datos")
+        if not evento:
+            return {"ok": True, "datos": "No tienes eventos proximos."}
+
+        comienza = datetime.fromisoformat(
+            evento["comienza"]
+        ).astimezone(ahora.tzinfo)
+        termina = datetime.fromisoformat(
+            evento["termina"]
+        ).astimezone(ahora.tzinfo)
+        duracion = int((termina - comienza).total_seconds() // 60)
+
+        return {
+            "ok": True,
+            "datos": (
+                f"Tu proxima cita es {evento['titulo']} el "
+                f"{comienza.strftime('%d/%m/%Y')} a las "
+                f"{comienza.strftime('%H:%M')} durante {duracion} minutos."
+            ),
+        }
+
+    def _consultar_huecos(
+        self,
+        usuario_id: UUID,
+        peticion: dict[str, object],
+    ) -> dict[str, object]:
+        """Consulta y presenta los huecos libres de una franja."""
+
+        try:
+            resultado = self._herramientas.obtener(
+                "agenda_huecos_libres"
+            ).ejecutar(usuario_id, peticion)
+        except KeyError:
+            return None
+
+        if resultado.get("ok") is not True:
+            return resultado
+
+        huecos = resultado.get("datos") or []
+        if not huecos:
+            return {
+                "ok": True,
+                "datos": "No encuentro huecos libres en esa franja.",
+            }
+
+        lineas = ["Huecos libres:"]
+
+        zona = self._ahora(usuario_id).tzinfo
+
+        for hueco in huecos:
+            desde = datetime.fromisoformat(
+                hueco["comienza"]
+            ).astimezone(zona)
+            hasta = datetime.fromisoformat(
+                hueco["termina"]
+            ).astimezone(zona)
+            lineas.append(
+                f"• {desde.strftime('%H:%M')} a {hasta.strftime('%H:%M')}"
+            )
+
+        return {"ok": True, "datos": "\n".join(lineas)}
 
     def _consultar_periodo(
         self,
@@ -1206,7 +1294,7 @@ def _detectar_reprogramacion(
         return None
 
     titulo = coincidencia.group("titulo").strip(" \t\n,.;:!?\u00bf\u00a1-")
-    resto = coincidencia.group("resto")
+    resto = coincidencia.group("resto") or ""
 
     fecha = resolver_fecha(resto, ahora)
     if fecha is None:
@@ -1245,4 +1333,82 @@ def _detectar_reprogramacion(
             f"{termina.strftime('%H:%M')}.\n\n"
             "Responde si para confirmar o no para cancelar."
         ),
+    }
+
+
+def _es_proxima_cita(texto: str) -> bool:
+    """Detecta consultas sobre el siguiente evento."""
+
+    return re.search(
+        r"\b(?:cual es mi proxima cita|proxima cita|proximo evento|"
+        r"que tengo ahora)\b",
+        texto,
+        re.IGNORECASE,
+    ) is not None
+
+
+def _detectar_huecos(
+    texto: str,
+    ahora: datetime,
+) -> dict[str, object] | None:
+    """Detecta una consulta de huecos libres en una franja."""
+
+    coincidencia = re.search(
+        r"\bhuecos?(?:\s+libres)?(?:\s+(?:el|para el|del|para)\s+"
+        r"(?P<resto>.+))?$",
+        texto,
+        re.IGNORECASE,
+    )
+
+    if coincidencia is None:
+        return None
+
+    resto = coincidencia.group("resto") or ""
+    fecha = resolver_fecha(resto, ahora) if resto else None
+
+    if fecha is None:
+        return _preguntar(
+            "¿De qué día quieres consultar los huecos libres?"
+        )
+
+    franja = re.search(
+        r"\bde\s+(?P<desde>.+?)\s+a\s+(?P<hasta>.+)$",
+        resto,
+        re.IGNORECASE,
+    )
+
+    if franja is None:
+        desde_texto = "09:00"
+        hasta_texto = "21:00"
+    else:
+        desde_texto = franja.group("desde").strip()
+        hasta_texto = franja.group("hasta").strip()
+
+    if re.fullmatch(r"\d{1,2}", desde_texto):
+        desde_texto += ":00"
+
+    if re.fullmatch(r"\d{1,2}", hasta_texto):
+        hasta_texto += ":00"
+
+    desde_hora = resolver_hora(f"a las {desde_texto}")
+    hasta_hora = resolver_hora(f"a las {hasta_texto}")
+
+    if desde_hora is None or hasta_hora is None:
+        return _preguntar(
+            "¿Entre qué horas quieres consultar los huecos libres?"
+        )
+
+    return {
+        "dia": fecha,
+        "desde": datetime.combine(
+            fecha,
+            desde_hora.hora,
+            tzinfo=ahora.tzinfo,
+        ),
+        "hasta": datetime.combine(
+            fecha,
+            hasta_hora.hora,
+            tzinfo=ahora.tzinfo,
+        ),
+        "minutos": 30,
     }
