@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -41,7 +42,14 @@ def main() -> None:
             motor=motor,
         )
         if isinstance(motor, MotorOllama):
-            motor.calentar()
+            try:
+                motor.calentar()
+            except OSError as error:
+                print(
+                    f"Aviso: no se pudo precalentar Ollama ({error}); "
+                    "se continuará con las reglas.",
+                    file=sys.stderr,
+                )
         if argumentos.usuario_id:
             usuario_id = UUID(argumentos.usuario_id)
             aplicacion.usuarios.obtener(usuario_id)

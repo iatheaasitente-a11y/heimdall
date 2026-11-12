@@ -148,6 +148,8 @@ PROHIBIDOS = [
     ("agents", "from app.services.agenda import ServicioAgenda\n"),
     ("agents", "from app.repositories.interfaces import RepositorioEventos\n"),
     ("agents", "import sqlite3\n"),
+    ("chatbot", "from app.services.agenda import ServicioAgenda\n"),
+    ("chatbot", "from app.repositories.interfaces import RepositorioEventos\n"),
     ("domain", "from .user import Usuario\n"),
     ("capa_inventada", "from app.domain.user import Usuario\n"),
 ]
@@ -166,6 +168,8 @@ PERMITIDOS = [
                "from app.tools.base import Herramienta\n"),
     ("llm", "import json\nfrom pydantic import BaseModel\n"),
     ("database", "import sqlite3\nfrom app.database.fechas import a_texto\n"),
+    ("chatbot", "from app.composicion import crear_composicion\n"
+                "from app.llm.ollama import MotorOllama\n"),
 ]
 
 

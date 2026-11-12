@@ -1,0 +1,31 @@
+frase,intencion
+¿Qué tengo hoy?,resumen_del_dia
+¿Qué tengo para hoy?,resumen_del_dia
+¿Qué hay hoy?,resumen_del_dia
+Enséñame mi resumen del día,resumen_del_dia
+¿Qué eventos tengo hoy?,agenda_eventos_del_dia
+Muéstrame mi agenda de hoy,agenda_eventos_del_dia
+¿Qué citas tengo esta tarde?,agenda_eventos_del_dia
+Lista los eventos del día,agenda_eventos_del_dia
+Tengo algo programado para hoy,agenda_eventos_del_dia
+Crea una cita para mañana,agenda_crear_evento
+Cancela mi próxima reunión,agenda_cancelar_evento
+¿Qué hábitos tengo pendientes?,habitos_progreso_del_dia
+Muéstrame el progreso de mis hábitos,habitos_progreso_del_dia
+¿Cuánto llevo de lectura hoy?,habitos_progreso_del_dia
+Registra que corrí cinco kilómetros,habitos_registrar_progreso
+Quiero crear un hábito de meditación,habitos_crear
+¿Cuál es mi racha de ejercicio?,habitos_racha
+Añade dos vasos de agua a mi progreso,habitos_registrar_progreso
+¿Qué objetivos tengo activos?,objetivos_listar
+Muéstrame mis objetivos,objetivos_listar
+Pausa mi objetivo de ahorrar,objetivos_pausar
+Reanuda el objetivo del curso,objetivos_reanudar
+Quiero crear un objetivo nuevo,objetivos_crear
+Cancela mi objetivo de correr,objetivos_cancelar
+Actualiza mi progreso al cincuenta por ciento,objetivos_progreso
+¿Qué recordatorios tengo hoy?,recordatorios_pendientes_del_dia
+Muéstrame los avisos pendientes,recordatorios_pendientes_del_dia
+Recuérdame llamar a Marta mañana,recordatorios_programar
+Cancela el recordatorio del dentista,recordatorios_cancelar
+Resume mi día de hoy,resumen_del_dia
