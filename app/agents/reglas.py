@@ -108,10 +108,6 @@ class ReglasDeterministas:
     def procesar(self, usuario_id: UUID, texto: str) -> dict[str, object] | None:
         """Resuelve una solicitud reconocida o devuelve ``None`` si no hay regla."""
         normalizado = _normalizar(texto)
-        propuesta_evento = _respuesta_creacion_evento(normalizado)
-        if propuesta_evento is not None:
-            return propuesta_evento
-
         respuesta_conversacion = _respuesta_conversacion(normalizado)
         if respuesta_conversacion is not None:
             return respuesta_conversacion
@@ -489,36 +485,6 @@ def _normalizar(texto: str) -> str:
 def _preguntar(mensaje: str) -> dict[str, object]:
     """Representa una aclaración necesaria sin ejecutar una herramienta."""
     return {"ok": False, "error": mensaje}
-
-
-def _respuesta_creacion_evento(texto: str) -> dict[str, object] | None:
-    """Detecta la intencion de crear un evento y propone su creacion."""
-
-    patron = re.compile(
-        r"crea(?:r)? un evento (.+?) (hoy|manana|mañana) a las (\d{1,2})(?::(\d{2}))?(?: durante (\d+) horas?)?",
-        re.IGNORECASE,
-    )
-    coincidencia = patron.search(texto)
-
-    if coincidencia is None:
-        return None
-
-    titulo = coincidencia.group(1).strip()
-    dia = coincidencia.group(2).lower()
-    hora = coincidencia.group(3)
-    minutos = coincidencia.group(4) or "00"
-    duracion = coincidencia.group(5) or "1"
-
-    propuesta = (
-        f"Voy a crear este evento:\n"
-        f"\u2022 {titulo}\n"
-        f"\u2022 {dia}\n"
-        f"\u2022 {hora}:{minutos}\n"
-        f"\u2022 Duracion: {duracion} hora(s)\n\n"
-        "Responde si para confirmar."
-    )
-
-    return {"ok": True, "datos": propuesta}
 
 
 def _respuesta_conversacion(texto: str) -> dict[str, object] | None:
