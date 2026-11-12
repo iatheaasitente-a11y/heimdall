@@ -14,6 +14,7 @@
 - Eventos de todo el día: al crear un evento con `todo_el_dia=True`, se ajusta al día completo.
 - Repeticiones semanales/mensuales: campo `repeticion` con valores `semanal` o `mensual`, y método `siguiente_ocurrencia()` para calcular la próxima fecha.
 - Cancelar/reprogramar por título: `ServicioAgendaPorTitulo` permite cancelar o reprogramar un evento usando su título en vez de su ID.
+- Recordatorios recurrentes: campo `repeticion` en `Recordatorio` con valores `semanal` o `mensual`, y método `siguiente_ocurrencia()` para calcular la próxima fecha.
 
 ## Flujo de agendado actual
 
@@ -32,10 +33,10 @@
 | 3 | Eventos de todo el día | Hecha |
 | 4 | Repeticiones semanales/mensuales | Hecha |
 | 5 | Cancelar/reprogramar por título | Hecha |
-| 6 | Recordatorios recurrentes | Pendiente |
+| 6 | Recordatorios recurrentes | Hecha |
 | 7 | Avisos previos configurables | Pendiente |
 | 8 | Búsqueda por rango con filtro | Pendiente |
 
 ## Próximo paso recomendado
 
-Mejora 6: recordatorios recurrentes.
+Mejora 7: avisos previos configurables.
