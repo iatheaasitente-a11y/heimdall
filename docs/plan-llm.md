@@ -22,6 +22,6 @@ escribe números ni fechas.
 | 1 | Cerrar servicios base; resolver revisiones y CI | hecho |
 | 2 | Herramientas (`app/tools`) con esquemas JSON sobre servicios | hecho |
 | 3 | Capa `llm`: interfaz, motores local/nube y falso para tests | hecho |
-| 4 | Agente abstracto y agente personal (reglas primero) | pendiente |
+| 4 | Agente abstracto y agente personal (reglas primero) | hecho |
 | 5 | Fábrica, router, chatbot por terminal y medición con CSV | pendiente |
 | 6 | Extra: módulo NBA | pendiente |

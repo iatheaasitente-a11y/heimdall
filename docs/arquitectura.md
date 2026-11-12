@@ -41,7 +41,7 @@ sin ejecutar código. Cada fallo indica archivo y línea.
 | `services` | `domain`, `schemas`, `repositories.interfaces`, `services` | No |
 | `tools` | `domain`, `schemas`, `services`, `tools` | Sí |
 | `llm` | solo `llm` | No |
-| `agents` (futura) | `domain.message`, `llm`, `tools`, `agents` | Sí |
+| `agents` | `domain.message`, `llm`, `tools`, `agents` | Sí |
 
 - `sqlite3` solo se usa en `database` y `repositories`.
 - Las implementaciones `sqlite_*` solo las importa `app/composicion.py`,
@@ -60,3 +60,7 @@ La capa `app/llm` devuelve únicamente intención, campos y confianza. Está
 apagada por defecto; Ollama usa `urllib` con timeout y sin reintentos, mientras
 que el motor nube permanece como esqueleto sin credenciales ni red. Los frenos
 limitan consultas por conversación y descartan respuestas de baja confianza.
+
+`AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
+Solo si no hay una regla aplicable y se configura un motor consulta el LLM; el
+agente no contiene lógica de negocio.
