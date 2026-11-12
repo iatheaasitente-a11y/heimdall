@@ -16,6 +16,7 @@ valida con los esquemas, aplica las reglas del dominio y guarda con los reposito
 | `ServicioRecordatorios` | programar avisos libres o de un evento, cancelar, marcar enviado, pendientes del día y vencidos |
 | `ServicioHabitos` | crear, listar y desactivar hábitos; registrar y borrar progreso; progreso del día y racha |
 | `ServicioObjetivos` | crear, consultar y listar; actualizar progreso; gestionar estados y vencimientos |
+| `ServicioConversaciones` | iniciar, renombrar y cerrar conversaciones; añadir y consultar mensajes e historial |
 
 ## Coherencia entre agenda y recordatorios
 Si `ServicioAgenda` recibe el repositorio de recordatorios:
@@ -35,6 +36,13 @@ cambios de progreso ni transiciones normales. El dominio ofrece `restablecer()`
 como corrección manual explícita, que vuelve a ACTIVO sin modificar el progreso.
 `ServicioObjetivos` solo actualiza progreso de objetivos activos y traduce las
 transiciones no permitidas a `CambioDeEstadoNoPermitido`.
+
+## Conversaciones y mensajes
+
+Las conversaciones se cierran y no se borran desde el servicio. Las conversaciones
+cerradas pueden consultarse, pero no renombrarse ni recibir nuevos mensajes. Los
+mensajes se añaden una sola vez: el servicio no ofrece operaciones para editarlos
+o eliminarlos.
 
 ## Permisos por usuario
 Toda operación sobre un evento o recordatorio concreto recibe el `usuario_id` de quien la pide
@@ -61,6 +69,8 @@ Las operaciones sobre objetivos siguen la misma regla y usan
 | `ObjetivoNoEncontrado` | El objetivo no existe o es de otro usuario |
 | `ObjetivoNoActivo` | El objetivo no está activo y no admite cambios de progreso |
 | `FechaLimiteEnElPasado` | La fecha límite indicada es anterior al día actual del usuario |
+| `ConversacionNoEncontrada` | La conversación no existe o es de otro usuario |
+| `ConversacionCerrada` | La conversación está cerrada y no admite cambios |
 
 Los datos mal formados (nombre vacío, zona inexistente, fechas sin zona) siguen
 lanzando `pydantic.ValidationError` o `ValueError`.
