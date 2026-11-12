@@ -80,3 +80,31 @@ def test_consulta_fin_de_semana_vacia():
     )
     assert resultado["ok"] is True
     assert "no tienes eventos este fin de semana" in resultado["datos"].lower()
+
+
+def test_rechaza_evento_que_solapa():
+    aplicacion, usuario = _entorno()
+    _crear_evento(aplicacion, usuario, 13, 10)
+
+    resultado = aplicacion.router.procesar(
+        usuario.id,
+        uuid4(),
+        "crea un evento reunion manana a las 10 durante 1 hora",
+    )
+
+    assert resultado["ok"] is False
+    assert "Ya tienes" in resultado["error"]
+
+
+def test_avisa_si_repite_nombre_otra_hora():
+    aplicacion, usuario = _entorno()
+    _crear_evento(aplicacion, usuario, 13, 10)
+
+    resultado = aplicacion.router.procesar(
+        usuario.id,
+        uuid4(),
+        "crea un evento gimnasio manana a las 18 durante 1 hora",
+    )
+
+    assert resultado["ok"] is True
+    assert "Ya tienes un evento con ese nombre" in resultado["datos"]
