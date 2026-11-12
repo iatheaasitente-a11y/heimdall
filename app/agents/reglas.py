@@ -3,7 +3,7 @@
 import re
 import unicodedata
 from collections.abc import Callable
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from uuid import UUID
 
 from app.domain.lenguaje_fechas import (
@@ -219,6 +219,94 @@ class ReglasDeterministas:
 
         return {"ok": True, "datos": "\n".join(lineas)}
 
+    def _hay_duplicado_proximo(
+        self,
+        usuario_id: UUID,
+        titulo: str,
+        desde: date,
+    ) -> bool:
+        """Comprueba si hay otro evento con el mismo titulo en los proximos 6 dias."""
+
+        try:
+            herramienta_dia = self._herramientas.obtener(
+                "agenda_eventos_del_dia"
+            )
+        except KeyError:
+            return False
+
+        for offset in range(-6, 7):
+            dia = desde + timedelta(days=offset)
+            existentes = herramienta_dia.ejecutar(
+                usuario_id,
+                {"dia": dia},
+            )
+            if existentes.get("ok") is not True:
+                continue
+
+            for evento in existentes.get("datos") or []:
+                if not isinstance(evento, dict):
+                    continue
+                nombre = str(evento.get("titulo", "")).strip().lower()
+                if nombre == titulo.lower():
+                    return True
+
+        return False
+
+    def _huecos_libres(
+        self,
+        usuario_id: UUID,
+        dia: date,
+        duracion: timedelta,
+        zona: object,
+    ) -> list[datetime]:
+        """Devuelve hasta tres huecos libres cercanos en el dia indicado."""
+
+        try:
+            herramienta_dia = self._herramientas.obtener(
+                "agenda_eventos_del_dia"
+            )
+        except KeyError:
+            return []
+
+        resultado = herramienta_dia.ejecutar(usuario_id, {"dia": dia})
+        eventos = resultado.get("datos") or [] if resultado.get("ok") else []
+
+        ocupados = []
+        for evento in eventos:
+            if not isinstance(evento, dict):
+                continue
+            inicio = _a_zona(evento.get("comienza"), zona)
+            fin = _a_zona(evento.get("termina"), zona)
+            if inicio is not None and fin is not None:
+                ocupados.append((inicio, fin))
+
+        candidatos = []
+        duracion_minutos = int(duracion.total_seconds() // 60)
+
+        for minuto in range(8 * 60, 22 * 60 - duracion_minutos + 1, 30):
+            comienza = datetime.combine(
+                dia,
+                time(minuto // 60, minuto % 60),
+                tzinfo=zona,
+            )
+            termina = comienza + duracion
+
+            libre = True
+            for inicio_evento, fin_evento in ocupados:
+                if comienza < fin_evento and termina > inicio_evento:
+                    libre = False
+                    break
+
+            if libre:
+                candidatos.append(comienza)
+
+        candidatos.sort(
+            key=lambda candidato: abs(
+                (candidato - comienza).total_seconds()
+            )
+        )
+        return candidatos[:3]
+
     def _crear_evento(self, usuario_id: UUID, texto: str) -> dict[str, object]:
         """Crea un evento solo cuando la fecha, hora, título y duración son claros."""
         ahora = self._ahora(usuario_id)
@@ -249,41 +337,62 @@ class ReglasDeterministas:
         except KeyError:
             herramienta_dia = None
 
-        existentes = (
-            herramienta_dia.ejecutar(usuario_id, {"dia": comienza.date()})
-            if herramienta_dia is not None
-            else {"ok": False}
-        )
-
         mismo_nombre = False
 
-        if existentes.get("ok") is True:
-            for evento in existentes.get("datos") or []:
-                if not isinstance(evento, dict):
+        if herramienta_dia is not None:
+            for offset in range(7):
+                dia = comienza.date() + timedelta(days=offset)
+                existentes = herramienta_dia.ejecutar(
+                    usuario_id,
+                    {"dia": dia},
+                )
+                if existentes.get("ok") is not True:
                     continue
 
-                inicio = _a_zona(evento.get("comienza"), ahora.tzinfo)
-                fin = _a_zona(evento.get("termina"), ahora.tzinfo)
+                for evento in existentes.get("datos") or []:
+                    if not isinstance(evento, dict):
+                        continue
 
-                if inicio is None or fin is None:
-                    continue
+                    inicio_evento = _a_zona(
+                        evento.get("comienza"),
+                        ahora.tzinfo,
+                    )
+                    fin_evento = _a_zona(
+                        evento.get("termina"),
+                        ahora.tzinfo,
+                    )
 
-                if comienza < fin and termina > inicio:
-                    return {
-                        "ok": False,
-                        "error": (
-                            f"Ya tienes '{evento.get('titulo', 'un evento')}' "
-                            f"de {inicio.strftime('%H:%M')} a "
-                            f"{fin.strftime('%H:%M')} ese dia. "
-                            "Elige otro horario o cancela el evento existente."
-                        ),
-                    }
+                    if inicio_evento is None or fin_evento is None:
+                        continue
 
-                if (
-                    str(evento.get("titulo", "")).strip().lower()
-                    == titulo.lower()
-                ):
-                    mismo_nombre = True
+                    if comienza < fin_evento and termina > inicio_evento:
+                        huecos = self._huecos_libres(
+                            usuario_id,
+                            comienza.date(),
+                            duracion,
+                            ahora.tzinfo,
+                        )
+                        opciones = "\n".join(
+                            f"\u2022 {hueco.strftime('%H:%M')}"
+                            for hueco in huecos
+                        )
+                        return {
+                            "ok": False,
+                            "error": (
+                                f"Ya tienes '{evento.get('titulo', 'un evento')}' "
+                                f"de {inicio_evento.strftime('%H:%M')} a "
+                                f"{fin_evento.strftime('%H:%M')} ese dia.\n\n"
+                                "Horas libres cercanas:\n"
+                                f"{opciones}\n\n"
+                                "Elige una hora o cancela el evento existente."
+                            ),
+                        }
+
+                    if (
+                        str(evento.get("titulo", "")).strip().lower()
+                        == titulo.lower()
+                    ):
+                        mismo_nombre = True
 
         argumentos = {
             "titulo": titulo,
@@ -297,6 +406,11 @@ class ReglasDeterministas:
         else:
             duracion_texto = f"{int(duracion.total_seconds() // 60)} minutos"
 
+        mismo_nombre = mismo_nombre or self._hay_duplicado_proximo(
+            usuario_id,
+            titulo,
+            comienza.date(),
+        )
         aviso = ""
         if mismo_nombre:
             aviso = "\n\nYa tienes un evento con ese nombre ese dia."
@@ -329,10 +443,23 @@ class ReglasDeterministas:
             resuelta.hora,
             tzinfo=ahora.tzinfo,
         )
-        return self._herramientas.obtener("recordatorios_programar").ejecutar(
-            usuario_id,
-            {"mensaje": mensaje, "cuando": cuando},
-        )
+        argumentos = {
+            "mensaje": mensaje,
+            "cuando": cuando,
+        }
+        self._acciones_pendientes[usuario_id] = {
+            "herramienta": "recordatorios_programar",
+            "argumentos": argumentos,
+            "propuesta": (
+                f"Voy a programar el recordatorio '{mensaje}' para el "
+                f"{cuando.strftime('%d/%m/%Y %H:%M')}.\n\n"
+                "Responde si para confirmar o no para cancelar."
+            ),
+        }
+        return {
+            "ok": True,
+            "datos": self._acciones_pendientes[usuario_id]["propuesta"],
+        }
 
     def _registrar_progreso(
         self,
