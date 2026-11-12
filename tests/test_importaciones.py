@@ -33,6 +33,13 @@ REGLAS = {
     "tools": ("app.domain", "app.schemas", "app.services", "app.tools"),
     "llm": ("app.llm",),
     "agents": ("app.domain.message", "app.llm", "app.tools", "app.agents"),
+    "chatbot": (
+        "app.composicion",
+        "app.database",
+        "app.domain.message",
+        "app.llm.configuracion",
+        "app.llm.ollama",
+    ),
 }
 
 CAPAS_CON_TERCEROS = {"schemas", "tools", "llm", "agents"}
@@ -107,6 +114,10 @@ def violaciones_del_proyecto(raiz=RAIZ):
         relativo = archivo.relative_to(raiz)
         nombre = f"app/{relativo.as_posix()}"
         if len(relativo.parts) == 1:
+            if relativo.name == "chatbot.py":
+                texto = archivo.read_text(encoding="utf-8")
+                resultado.extend(analizar(texto, "chatbot", nombre))
+                continue
             if relativo.name in ARCHIVOS_EXENTOS | ARCHIVOS_LIBRES:
                 continue
             resultado.append(f"{nombre}: archivo suelto en app/ sin regla")

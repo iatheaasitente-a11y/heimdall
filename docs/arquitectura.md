@@ -42,10 +42,13 @@ sin ejecutar código. Cada fallo indica archivo y línea.
 | `tools` | `domain`, `schemas`, `services`, `tools` | Sí |
 | `llm` | solo `llm` | No |
 | `agents` | `domain.message`, `llm`, `tools`, `agents` | Sí |
+| `chatbot` | `composicion`, `database`, `domain.message`, `llm.configuracion`, `llm.ollama` | No |
 
 - `sqlite3` solo se usa en `database` y `repositories`.
 - Las implementaciones `sqlite_*` solo las importa `app/composicion.py`,
   que es el único archivo exento.
+- `app/chatbot.py` es el punto de entrada de terminal y tiene sus dependencias
+  explícitas en `REGLAS` de `tests/test_importaciones.py`.
 - Para permitir una dependencia nueva hay que ampliar `REGLAS` en el test y dejarlo escrito aquí.
 
 ## Herramientas

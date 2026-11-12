@@ -10,11 +10,27 @@ from app.llm import (
     ErrorRespuestaLLM,
     FrenosLLM,
     MotorFalso,
+    MotorLLM,
     MotorNube,
     MotorOllama,
     RespuestaEstructurada,
     crear_motor,
 )
+
+
+class MotorQueFalla(MotorLLM):
+    """Motor controlado para comprobar fallos absorbidos por los frenos."""
+
+    def __init__(self, error):
+        """Guarda el error que se lanzará al consultar."""
+        self.error = error
+        self.llamadas = 0
+
+    def interpretar(self, historial, herramientas):
+        """Incrementa las llamadas y lanza el error configurado."""
+        del historial, herramientas
+        self.llamadas += 1
+        raise self.error
 
 
 def test_respuesta_estructurada_contiene_intencion_argumentos_y_confianza():
@@ -82,10 +98,27 @@ def test_motor_ollama_envia_salida_estructurada_sin_red_real():
     assert payload["model"] == "llama3.2:3b"
     assert payload["stream"] is False
     assert payload["format"]["additionalProperties"] is False
+    assert payload["options"] == {"temperature": 0}
+    assert payload["keep_alive"] == "30m"
     assert payload["messages"][-1] == {
         "role": "user",
         "content": "¿Qué tengo hoy?",
     }
+
+
+def test_ollama_calentar_carga_el_modelo_con_una_peticion_minima():
+    with patch(
+        "app.llm.ollama.urlopen",
+        return_value=BytesIO(b"{}"),
+    ) as urlopen:
+        MotorOllama().calentar()
+    request = urlopen.call_args.args[0]
+    payload = json.loads(request.data)
+    assert payload["model"] == "llama3.2:3b"
+    assert payload["messages"] == [{"role": "user", "content": ""}]
+    assert payload["options"] == {"temperature": 0}
+    assert payload["keep_alive"] == "30m"
+    assert urlopen.call_args.kwargs["timeout"] == 30.0
 
 
 def test_ollama_no_reintenta_si_expira_el_tiempo():
@@ -132,6 +165,37 @@ def test_ollama_propaga_error_de_conexion_sin_reintentar():
 def test_timeout_invalido_se_rechaza():
     with pytest.raises(ValueError):
         MotorOllama(timeout=0)
+
+
+def test_timeout_se_puede_configurar_por_entorno(monkeypatch):
+    monkeypatch.setenv("HEIMDALL_LLM_TIMEOUT", "3.5")
+    motor = MotorOllama()
+    respuesta = {
+        "message": {
+            "content": json.dumps(
+                {"intencion": "resumen_del_dia", "campos": {}, "confianza": 0.9}
+            )
+        }
+    }
+    cuerpo = json.dumps(respuesta).encode("utf-8")
+    with patch("app.llm.ollama.urlopen", return_value=BytesIO(cuerpo)) as urlopen:
+        motor.interpretar([], [])
+    assert urlopen.call_args.kwargs["timeout"] == 3.5
+
+
+def test_timeout_normal_sigue_siendo_de_diez_segundos():
+    assert MotorOllama()._timeout == 10.0
+
+
+def test_timeout_explicito_prevalece_sobre_el_entorno(monkeypatch):
+    monkeypatch.setenv("HEIMDALL_LLM_TIMEOUT", "3.5")
+    assert MotorOllama(timeout=2.5)._timeout == 2.5
+
+
+def test_timeout_de_entorno_invalido_se_rechaza(monkeypatch):
+    monkeypatch.setenv("HEIMDALL_LLM_TIMEOUT", "invalido")
+    with pytest.raises(ValueError, match="HEIMDALL_LLM_TIMEOUT"):
+        MotorOllama()
 
 
 def test_motor_esta_apagado_por_defecto(monkeypatch):
@@ -185,6 +249,19 @@ def test_frenos_mantienen_cuotas_separadas_por_conversacion():
     frenos = FrenosLLM(motor, max_consultas=1)
     assert frenos.consultar(uuid4(), [], []) == respuesta
     assert frenos.consultar(uuid4(), [], []) == respuesta
+
+
+@pytest.mark.parametrize(
+    "error",
+    [OSError("sin servicio"), ErrorRespuestaLLM("respuesta inválida")],
+)
+def test_frenos_descartan_errores_del_motor_y_consumen_la_cuota(error):
+    motor = MotorQueFalla(error)
+    frenos = FrenosLLM(motor, max_consultas=1)
+    conversacion_id = uuid4()
+    assert frenos.consultar(conversacion_id, [], []) is None
+    assert frenos.consultar(conversacion_id, [], []) is None
+    assert motor.llamadas == 1
 
 
 @pytest.mark.parametrize(

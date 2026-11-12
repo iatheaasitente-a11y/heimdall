@@ -3,7 +3,6 @@ from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
-from pydantic import ValidationError
 
 from app.database.connection import crear_conexion
 from app.database.esquema import aplicar_schema
@@ -100,10 +99,14 @@ def test_esquema_json_no_incluye_usuario_id(entorno):
         assert "usuario_id" not in esquema.get("properties", {})
 
 
-def test_esquema_rechaza_usuario_id_en_argumentos(entorno):
+def test_esquema_rechaza_usuario_id_en_argumentos_con_error_json(entorno):
     item = herramienta(entorno, "agenda_eventos_del_dia")
-    with pytest.raises(ValidationError):
-        item.ejecutar(entorno[1].id, {"dia": DIA, "usuario_id": str(uuid4())})
+    resultado = item.ejecutar(
+        entorno[1].id,
+        {"dia": DIA, "usuario_id": str(uuid4())},
+    )
+    assert resultado["ok"] is False
+    assert "usuario_id" in resultado["error"]
 
 
 def test_herramienta_json_schema_deriva_del_modelo_pydantic():
@@ -144,6 +147,50 @@ def test_error_de_servicio_se_devuelve_como_error_json():
         "ok": False,
         "error": "Error previsto.",
     }
+
+
+def test_valor_error_del_servicio_se_devuelve_como_error_json():
+    def fallar(usuario_id, argumentos):
+        del usuario_id, argumentos
+        raise ValueError("Valor inválido.")
+
+    item = Herramienta("fallo", "Falla con un valor inválido.", Parametros, fallar)
+    assert item.ejecutar(uuid4(), {}) == {
+        "ok": False,
+        "error": "Valor inválido.",
+    }
+
+
+def test_nombre_en_blanco_se_devuelve_como_error_json(entorno):
+    resultado = herramienta(entorno, "habitos_crear").ejecutar(
+        entorno[1].id,
+        {"nombre": "   "},
+    )
+    assert resultado["ok"] is False
+    assert "nombre" in resultado["error"]
+
+
+def test_progreso_fuera_de_rango_se_devuelve_como_error_json(entorno):
+    resultado = herramienta(entorno, "objetivos_actualizar_progreso").ejecutar(
+        entorno[1].id,
+        {"objetivo_id": str(uuid4()), "progreso": 101},
+    )
+    assert resultado["ok"] is False
+    assert "progreso" in resultado["error"]
+
+
+def test_racha_de_habito_semanal_se_devuelve_como_error_json(entorno):
+    usuario_id = entorno[1].id
+    habito = herramienta(entorno, "habitos_crear").ejecutar(
+        usuario_id,
+        {"nombre": "Semanal", "frecuencia": FrecuenciaHabito.SEMANAL.value},
+    )["datos"]
+    resultado = herramienta(entorno, "habitos_racha").ejecutar(
+        usuario_id,
+        {"habito_id": habito["id"], "dia": "2026-10-23"},
+    )
+    assert resultado["ok"] is False
+    assert "frecuencia diaria" in resultado["error"]
 
 
 def test_crear_evento_delega_en_agenda_y_devuelve_json(entorno):

@@ -35,6 +35,10 @@ Registro del equipo de desarrollo y de las herramientas instaladas. Se actualiza
   Con esa variable, el registro del servidor detectó la tarjeta por Vulkan (6,1 GiB totales).
 - Estado: confirmado el 2026-11-12. `llama3.2:3b` responde con `100% GPU` por Vulkan (2,6 GB, contexto 4096). La primera carga tarda unos 25 s. Hay que exportar la variable antes de cada `ollama serve`; el controlador sigue en 560.94.
 
+El chatbot precarga Ollama al arrancar. El calentamiento permite 30 s como
+mínimo para cubrir la primera carga; las consultas normales tienen un timeout
+de 10 s, configurable con `HEIMDALL_LLM_TIMEOUT` (segundos).
+
 ## Arranque rápido
 1. Abrir VS Code en la carpeta del proyecto y activar `.venv`.
 2. Recargar el PATH si una terminal nueva no reconoce `node`, `npm` o `ollama`.

@@ -7,7 +7,6 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from app.domain.goal import EstadoObjetivo
 from app.domain.habit import FrecuenciaHabito
-from app.domain.message import RolMensaje
 
 
 class Parametros(BaseModel):
@@ -115,12 +114,3 @@ class ResumenDia(Parametros):
     """Día que se quiere resumir."""
 
     dia: date
-
-
-class AgregarMensaje(Parametros):
-    """Parámetros para añadir un mensaje a una conversación."""
-
-    conversacion_id: UUID
-    rol: RolMensaje
-    contenido: str
-    metadatos: dict[str, object] | None = None

@@ -44,7 +44,6 @@ class AgentePersonal(AgenteBase):
 
         Raises:
             KeyError: Si no está registrada la herramienta de resumen diario.
-            pydantic.ValidationError: Si los argumentos de herramienta no son válidos.
         """
         if _es_resumen_de_hoy(texto):
             return self._herramientas.obtener("resumen_del_dia").ejecutar(

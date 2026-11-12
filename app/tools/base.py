@@ -37,15 +37,11 @@ class Herramienta:
     def ejecutar(
         self, usuario_id: UUID, argumentos: Mapping[str, Any]
     ) -> dict[str, object]:
-        """Valida argumentos y ejecuta el servicio con el usuario del sistema.
-
-        Raises:
-            pydantic.ValidationError: Si los argumentos no cumplen el esquema.
-        """
-        parametros = self.parametros.model_validate(dict(argumentos))
+        """Valida argumentos y ejecuta el servicio con el usuario del sistema."""
         try:
+            parametros = self.parametros.model_validate(dict(argumentos))
             datos = self._ejecutar(usuario_id, parametros.model_dump())
-        except ErrorDeServicio as error:
+        except (ErrorDeServicio, ValueError) as error:
             return {"ok": False, "error": str(error)}
         return {"ok": True, "datos": _a_json(datos)}
 

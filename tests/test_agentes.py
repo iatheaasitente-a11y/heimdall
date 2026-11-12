@@ -4,7 +4,7 @@ from inspect import isabstract
 from uuid import uuid4
 
 import pytest
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict
 
 from app.agents import AgenteBase, AgentePersonal
 from app.llm import MotorFalso, RespuestaEstructurada
@@ -142,8 +142,9 @@ def test_motor_llm_no_puede_elegir_usuario_id():
         ]
     )
     agente = AgentePersonal(_registro_resumen(llamadas), motor)
-    with pytest.raises(ValidationError, match="usuario_id"):
-        agente.procesar(uuid4(), uuid4(), "Dame un resumen")
+    resultado = agente.procesar(uuid4(), uuid4(), "Dame un resumen")
+    assert resultado["ok"] is False
+    assert "usuario_id" in resultado["error"]
     assert llamadas == []
 
 

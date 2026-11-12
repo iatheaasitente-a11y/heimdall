@@ -3,7 +3,7 @@
 from collections.abc import Mapping, Sequence
 from uuid import UUID
 
-from app.llm.interfaz import MotorLLM, RespuestaEstructurada
+from app.llm.interfaz import ErrorRespuestaLLM, MotorLLM, RespuestaEstructurada
 
 
 class FrenosLLM:
@@ -43,7 +43,10 @@ class FrenosLLM:
         if usadas >= self._max_consultas:
             return None
         self._consultas[conversacion_id] = usadas + 1
-        respuesta = self._motor.interpretar(historial, herramientas)
+        try:
+            respuesta = self._motor.interpretar(historial, herramientas)
+        except (OSError, ErrorRespuestaLLM):
+            return None
         if respuesta.confianza < self._confianza_minima:
             return None
         return respuesta

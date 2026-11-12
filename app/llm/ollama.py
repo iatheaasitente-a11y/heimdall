@@ -1,6 +1,7 @@
 """Cliente mínimo de Ollama con salida estructurada y sin reintentos."""
 
 import json
+import os
 from collections.abc import Mapping, Sequence
 from urllib.request import Request, urlopen
 
@@ -14,14 +15,44 @@ class MotorOllama(MotorLLM):
         self,
         url: str = "http://127.0.0.1:11434/api/chat",
         modelo: str = "llama3.2:3b",
-        timeout: float = 10.0,
+        timeout: float | None = None,
     ) -> None:
         """Configura endpoint, modelo local y tiempo máximo por solicitud."""
+        if timeout is None:
+            try:
+                timeout = float(os.getenv("HEIMDALL_LLM_TIMEOUT", "10"))
+            except ValueError as error:
+                raise ValueError(
+                    "HEIMDALL_LLM_TIMEOUT debe ser un número mayor que cero."
+                ) from error
         if timeout <= 0:
             raise ValueError("El timeout debe ser mayor que cero.")
         self._url = url
         self._modelo = modelo
         self._timeout = timeout
+
+    def calentar(self) -> None:
+        """Carga el modelo con una solicitud mínima antes de iniciar el chat.
+
+        Raises:
+            OSError: Si Ollama no está disponible o falla la solicitud.
+        """
+        solicitud = Request(
+            self._url,
+            data=json.dumps(
+                {
+                    "model": self._modelo,
+                    "messages": [{"role": "user", "content": ""}],
+                    "stream": False,
+                    "options": {"temperature": 0},
+                    "keep_alive": "30m",
+                }
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(solicitud, timeout=max(self._timeout, 30.0)):
+            pass
 
     def interpretar(
         self,
@@ -51,6 +82,8 @@ class MotorOllama(MotorLLM):
             "messages": mensajes,
             "stream": False,
             "format": _ESQUEMA_RESPUESTA,
+            "options": {"temperature": 0},
+            "keep_alive": "30m",
         }
         request = Request(
             self._url,
