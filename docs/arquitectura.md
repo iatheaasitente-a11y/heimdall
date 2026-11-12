@@ -66,13 +66,25 @@ exacto sin distinguir mayúsculas ni tildes; la búsqueda se limita al usuario.
 Una selección ausente o ambigua devuelve candidatos, y hay herramientas para
 listar hábitos y recordatorios.
 
-La capa `app/llm` devuelve únicamente intención, campos y confianza. Está
-apagada por defecto; Ollama usa `urllib` con timeout y sin reintentos, mientras
-que el motor nube permanece como esqueleto sin credenciales ni red. Los frenos
-limitan consultas por conversación y tratan la confianza ausente o inválida
-como baja. Antes de ejecutar, el agente comprueba que la herramienta y sus
-argumentos pertenecen al catálogo; al motor solo pasa los últimos cuatro turnos
-y, si hay una aclaración pendiente, la pregunta bajo `esperando`.
+La capa `app/llm` devuelve únicamente intención, campos y confianza. El catálogo
+inyectado asigna modelos explícitos a TEXTO, ENRUTADOR, VISION, OCR y VOZ; sin
+configuración, cada rol queda apagado. Las variables son
+`HEIMDALL_MODELO_TEXTO`, `HEIMDALL_MODELO_ENRUTADOR`,
+`HEIMDALL_MODELO_VISION`, `HEIMDALL_MODELO_OCR` y `HEIMDALL_MODELO_VOZ`.
+Ollama usa `urllib`, timeouts por rol y ningún reintento; el motor nube sigue
+siendo un esqueleto sin credenciales ni red y no hay fallback silencioso.
+
+El planificador usa un lock compartido dentro del proceso. Antes de cambiar de
+modelo solicita su descarga (`keep_alive: 0`) y verifica `/api/ps`; si no
+confirma la descarga o que solo el modelo solicitado quedó cargado, falla
+cerrado. Los plazos monotónicos por rol y el umbral mínimo de confianza (0,70)
+están en [`plan-llm.md`](./plan-llm.md). El lock no coordina otros procesos ni
+otros clientes de Ollama, así que no garantiza exclusión frente a ellos.
+Los frenos limitan consultas por conversación y tratan la confianza ausente,
+ilegible o fuera de rango como baja. Antes de ejecutar, el agente comprueba que
+la herramienta y sus argumentos pertenecen al catálogo; al motor solo pasa los
+últimos cuatro turnos y, si hay una aclaración pendiente, la pregunta bajo
+`esperando`.
 
 `AgentePersonal` evalúa primero patrones deterministas y delega en herramientas.
 Las reglas interpretan fechas con `app/domain/lenguaje_fechas.py`; si faltan

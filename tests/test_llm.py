@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from app.llm import (
+    Catalogo,
     ErrorRespuestaLLM,
     FrenosLLM,
     MotorFalso,
@@ -15,8 +16,14 @@ from app.llm import (
     MotorNube,
     MotorOllama,
     RespuestaEstructurada,
+    RolModelo,
+    crear_catalogo,
     crear_motor,
+    crear_planificador,
 )
+
+
+MODELO_PRUEBA = "modelo-prueba"
 
 
 class MotorQueFalla(MotorLLM):
@@ -79,7 +86,7 @@ def test_motor_ollama_envia_salida_estructurada_sin_red_real():
             )
         }
     }
-    motor = MotorOllama(timeout=2.5)
+    motor = MotorOllama(modelo=MODELO_PRUEBA, timeout=2.5)
     with patch(
         "app.llm.ollama.urlopen",
         return_value=BytesIO(json.dumps(contenido).encode("utf-8")),
@@ -96,7 +103,7 @@ def test_motor_ollama_envia_salida_estructurada_sin_red_real():
     payload = json.loads(request.data)
     assert request.full_url == "http://127.0.0.1:11434/api/chat"
     assert urlopen.call_args.kwargs["timeout"] == 2.5
-    assert payload["model"] == "llama3.2:3b"
+    assert payload["model"] == MODELO_PRUEBA
     assert payload["stream"] is False
     assert payload["format"]["additionalProperties"] is False
     assert payload["options"] == {"temperature": 0}
@@ -112,18 +119,70 @@ def test_ollama_calentar_carga_el_modelo_con_una_peticion_minima():
         "app.llm.ollama.urlopen",
         return_value=BytesIO(b"{}"),
     ) as urlopen:
-        MotorOllama().calentar()
+        MotorOllama(modelo=MODELO_PRUEBA).calentar()
     request = urlopen.call_args.args[0]
     payload = json.loads(request.data)
-    assert payload["model"] == "llama3.2:3b"
+    assert payload["model"] == MODELO_PRUEBA
     assert payload["messages"] == [{"role": "user", "content": ""}]
     assert payload["options"] == {"temperature": 0}
     assert payload["keep_alive"] == "30m"
     assert urlopen.call_args.kwargs["timeout"] == 30.0
 
 
+def test_ollama_calentar_acepta_el_timeout_de_carga_aprobado():
+    with patch(
+        "app.llm.ollama.urlopen",
+        return_value=BytesIO(b"{}"),
+    ) as urlopen:
+        MotorOllama(modelo=MODELO_PRUEBA).calentar(timeout=60)
+
+    assert urlopen.call_args.kwargs["timeout"] == 60
+
+
+def test_ollama_descarga_modelo_con_keep_alive_cero():
+    motor = MotorOllama(modelo=MODELO_PRUEBA)
+    with patch(
+        "app.llm.ollama.urlopen",
+        return_value=BytesIO(b"{}"),
+    ) as urlopen:
+        motor.descargar(timeout=10)
+
+    request = urlopen.call_args.args[0]
+    assert request.full_url == "http://127.0.0.1:11434/api/generate"
+    assert request.get_method() == "POST"
+    assert json.loads(request.data) == {
+        "model": MODELO_PRUEBA,
+        "keep_alive": 0,
+        "stream": False,
+    }
+    assert urlopen.call_args.kwargs["timeout"] == 10
+
+
+def test_ollama_informa_modelos_cargados():
+    cuerpo = json.dumps({"models": [{"name": MODELO_PRUEBA}]}).encode("utf-8")
+    motor = MotorOllama(modelo=MODELO_PRUEBA)
+    with patch("app.llm.ollama.urlopen", return_value=BytesIO(cuerpo)) as urlopen:
+        assert motor.modelos_cargados(timeout=10) == (MODELO_PRUEBA,)
+
+    request = urlopen.call_args.args[0]
+    assert request.full_url == "http://127.0.0.1:11434/api/ps"
+    assert request.get_method() == "GET"
+
+
+@pytest.mark.parametrize("cuerpo", [b"{}", b'{"models":{}}', b"not-json"])
+def test_ollama_rechaza_lista_de_modelos_cargados_invalida(cuerpo):
+    with patch("app.llm.ollama.urlopen", return_value=BytesIO(cuerpo)):
+        with pytest.raises(ErrorRespuestaLLM, match="lista de modelos"):
+            MotorOllama(modelo=MODELO_PRUEBA).modelos_cargados(timeout=10)
+
+
+def test_ollama_exige_nombre_de_modelo_explicito():
+    with pytest.raises(ValueError, match="explícitamente"):
+        MotorOllama()
+
+
 def test_ollama_no_reintenta_si_expira_el_tiempo():
-    motor = MotorOllama()
+    motor = MotorOllama(modelo=MODELO_PRUEBA)
     with patch("app.llm.ollama.urlopen", side_effect=TimeoutError("timeout")) as urlopen:
         with pytest.raises(TimeoutError):
             motor.interpretar([], [])
@@ -136,7 +195,7 @@ def test_ollama_devuelve_error_claro_si_la_respuesta_no_es_valida():
         return_value=BytesIO(b'{"message":{"content":"{}"}}'),
     ):
         with pytest.raises(ErrorRespuestaLLM):
-            MotorOllama().interpretar([], [])
+            MotorOllama(modelo=MODELO_PRUEBA).interpretar([], [])
 
 
 @pytest.mark.parametrize(
@@ -153,24 +212,24 @@ def test_ollama_convierte_campos_invalidos_en_error_de_respuesta(respuesta):
         return_value=BytesIO(json.dumps(cuerpo).encode("utf-8")),
     ):
         with pytest.raises(ErrorRespuestaLLM):
-            MotorOllama().interpretar([], [])
+            MotorOllama(modelo=MODELO_PRUEBA).interpretar([], [])
 
 
 def test_ollama_propaga_error_de_conexion_sin_reintentar():
     with patch("app.llm.ollama.urlopen", side_effect=URLError("sin servidor")) as urlopen:
         with pytest.raises(URLError):
-            MotorOllama().interpretar([], [])
+            MotorOllama(modelo=MODELO_PRUEBA).interpretar([], [])
     urlopen.assert_called_once()
 
 
 def test_timeout_invalido_se_rechaza():
     with pytest.raises(ValueError):
-        MotorOllama(timeout=0)
+        MotorOllama(modelo=MODELO_PRUEBA, timeout=0)
 
 
 def test_timeout_se_puede_configurar_por_entorno(monkeypatch):
     monkeypatch.setenv("HEIMDALL_LLM_TIMEOUT", "3.5")
-    motor = MotorOllama()
+    motor = MotorOllama(modelo=MODELO_PRUEBA)
     respuesta = {
         "message": {
             "content": json.dumps(
@@ -185,18 +244,18 @@ def test_timeout_se_puede_configurar_por_entorno(monkeypatch):
 
 
 def test_timeout_normal_sigue_siendo_de_diez_segundos():
-    assert MotorOllama()._timeout == 10.0
+    assert MotorOllama(modelo=MODELO_PRUEBA)._timeout == 10.0
 
 
 def test_timeout_explicito_prevalece_sobre_el_entorno(monkeypatch):
     monkeypatch.setenv("HEIMDALL_LLM_TIMEOUT", "3.5")
-    assert MotorOllama(timeout=2.5)._timeout == 2.5
+    assert MotorOllama(modelo=MODELO_PRUEBA, timeout=2.5)._timeout == 2.5
 
 
 def test_timeout_de_entorno_invalido_se_rechaza(monkeypatch):
     monkeypatch.setenv("HEIMDALL_LLM_TIMEOUT", "invalido")
     with pytest.raises(ValueError, match="HEIMDALL_LLM_TIMEOUT"):
-        MotorOllama()
+        MotorOllama(modelo=MODELO_PRUEBA)
 
 
 def test_motor_esta_apagado_por_defecto(monkeypatch):
@@ -205,10 +264,68 @@ def test_motor_esta_apagado_por_defecto(monkeypatch):
 
 
 def test_configuracion_selecciona_ollama_o_nube(monkeypatch):
+    monkeypatch.setenv("HEIMDALL_MODELO_TEXTO", "modelo-texto")
     monkeypatch.setenv("HEIMDALL_LLM", "ollama")
-    assert isinstance(crear_motor(), MotorOllama)
+    motor = crear_motor()
+    assert isinstance(motor, MotorOllama)
+    assert motor._modelo == "modelo-texto"
     monkeypatch.setenv("HEIMDALL_LLM", "nube")
     assert isinstance(crear_motor(), MotorNube)
+
+
+def test_configuracion_apaga_ollama_si_no_hay_modelo_de_texto(monkeypatch):
+    monkeypatch.setenv("HEIMDALL_LLM", "ollama")
+    monkeypatch.delenv("HEIMDALL_MODELO_TEXTO", raising=False)
+
+    assert crear_motor() is None
+
+
+def test_catalogo_desde_entorno_apaga_todos_los_roles_por_defecto(monkeypatch):
+    for variable in (
+        "HEIMDALL_MODELO_TEXTO",
+        "HEIMDALL_MODELO_ENRUTADOR",
+        "HEIMDALL_MODELO_VISION",
+        "HEIMDALL_MODELO_OCR",
+        "HEIMDALL_MODELO_VOZ",
+    ):
+        monkeypatch.delenv(variable, raising=False)
+
+    catalogo = crear_catalogo()
+
+    assert isinstance(catalogo, Catalogo)
+    assert all(catalogo.obtener(rol) is None for rol in RolModelo)
+
+
+def test_catalogo_habilita_roles_de_forma_independiente():
+    catalogo = crear_catalogo(
+        {
+            "HEIMDALL_MODELO_TEXTO": " modelo-a ",
+            "HEIMDALL_MODELO_ENRUTADOR": "modelo-router",
+            "HEIMDALL_MODELO_OCR": "modelo-b",
+            "HEIMDALL_MODELO_VISION": " ",
+            "HEIMDALL_MODELO_VOZ": "modelo-voz",
+        }
+    )
+
+    texto = catalogo.obtener(RolModelo.TEXTO)
+    enrutador = catalogo.obtener(RolModelo.ENRUTADOR)
+    ocr = catalogo.obtener(RolModelo.OCR)
+    assert catalogo.obtener(RolModelo.VISION) is None
+    voz = catalogo.obtener(RolModelo.VOZ)
+    assert texto is not None
+    assert enrutador is not None
+    assert ocr is not None
+    assert voz is not None
+    assert texto.nombre == "modelo-a"
+    assert enrutador.nombre == "modelo-router"
+    assert ocr.nombre == "modelo-b"
+    assert voz.nombre == "modelo-voz"
+
+
+def test_fabrica_planificador_deja_roles_apagados_si_no_hay_modelos():
+    planificador = crear_planificador({})
+
+    assert planificador.interpretar(RolModelo.TEXTO, [], []) is None
 
 
 def test_configuracion_rechaza_valores_desconocidos(monkeypatch):
@@ -233,7 +350,11 @@ def test_frenos_descartan_respuestas_de_baja_confianza():
     [
         SimpleNamespace(),
         SimpleNamespace(confianza="alta"),
+        SimpleNamespace(confianza=True),
         SimpleNamespace(confianza=float("nan")),
+        SimpleNamespace(confianza=float("inf")),
+        SimpleNamespace(confianza=-0.1),
+        SimpleNamespace(confianza=1.1),
     ],
 )
 def test_frenos_descartan_confianza_ausente_o_ilegible(monkeypatch, respuesta):
@@ -252,6 +373,16 @@ def test_frenos_aceptan_el_umbral_exactamente():
     respuesta = RespuestaEstructurada("intencion", {}, 0.65)
     frenos = FrenosLLM(MotorFalso([respuesta]), confianza_minima=0.65)
     assert frenos.consultar(uuid4(), [], []) == respuesta
+
+
+def test_frenos_usan_el_umbral_aprobado_por_defecto():
+    aceptable = RespuestaEstructurada("intencion", {}, 0.70)
+    baja = RespuestaEstructurada("intencion", {}, 0.69)
+    conversacion = uuid4()
+    frenos = FrenosLLM(MotorFalso([aceptable, baja]))
+
+    assert frenos.consultar(conversacion, [], []) == aceptable
+    assert frenos.consultar(conversacion, [], []) is None
 
 
 def test_frenos_aplican_limite_por_conversacion():
@@ -287,7 +418,14 @@ def test_frenos_descartan_errores_del_motor_y_consumen_la_cuota(error):
 
 @pytest.mark.parametrize(
     "max_consultas,confianza",
-    [(0, 0.5), (1, -0.1), (1, 1.1)],
+    [
+        (0, 0.5),
+        (1, -0.1),
+        (1, 1.1),
+        (1, True),
+        (1, float("nan")),
+        (1, float("inf")),
+    ],
 )
 def test_frenos_validan_configuracion(max_consultas, confianza):
     with pytest.raises(ValueError):

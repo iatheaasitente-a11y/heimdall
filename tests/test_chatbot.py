@@ -8,7 +8,7 @@ from app.llm.ollama import MotorOllama
 
 def test_chatbot_calienta_ollama_al_arrancar(monkeypatch):
     usuario_id = uuid4()
-    motor = MotorOllama()
+    motor = MotorOllama(modelo="modelo-prueba")
     usuario = SimpleNamespace(id=usuario_id)
     aplicacion = SimpleNamespace(
         usuarios=SimpleNamespace(obtener=lambda _usuario_id: usuario),
@@ -46,7 +46,7 @@ def test_chatbot_avisa_si_ollama_no_calienta_y_sigue_con_reglas(
     capsys,
 ):
     usuario_id = uuid4()
-    motor = MotorOllama()
+    motor = MotorOllama(modelo="modelo-prueba")
     usuario = SimpleNamespace(id=usuario_id)
     llamadas = []
 

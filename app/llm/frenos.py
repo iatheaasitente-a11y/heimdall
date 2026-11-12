@@ -1,10 +1,10 @@
 """Límites de consultas y confianza para proteger el uso del motor."""
 
 from collections.abc import Mapping, Sequence
-from math import isfinite
 from uuid import UUID
 
 from app.llm.interfaz import ErrorRespuestaLLM, MotorLLM, RespuestaEstructurada
+from app.llm.roles import confianza_suficiente
 
 
 class FrenosLLM:
@@ -14,7 +14,7 @@ class FrenosLLM:
         self,
         motor: MotorLLM,
         max_consultas: int = 3,
-        confianza_minima: float = 0.65,
+        confianza_minima: float = 0.70,
     ) -> None:
         """Crea los frenos con un máximo positivo y confianza entre cero y uno.
 
@@ -23,7 +23,7 @@ class FrenosLLM:
         """
         if max_consultas <= 0:
             raise ValueError("El máximo de consultas debe ser mayor que cero.")
-        if not 0 <= confianza_minima <= 1:
+        if not confianza_suficiente(confianza_minima, 0):
             raise ValueError("La confianza mínima debe estar entre 0 y 1.")
         self._motor = motor
         self._max_consultas = max_consultas
@@ -49,13 +49,7 @@ class FrenosLLM:
         except (OSError, ErrorRespuestaLLM):
             return None
         confianza = getattr(respuesta, "confianza", None)
-        if (
-            isinstance(confianza, bool)
-            or not isinstance(confianza, (int, float))
-            or not isfinite(confianza)
-            or not 0 <= confianza <= 1
-            or confianza < self._confianza_minima
-        ):
+        if not confianza_suficiente(confianza, self._confianza_minima):
             return None
         if not isinstance(respuesta, RespuestaEstructurada):
             return None
