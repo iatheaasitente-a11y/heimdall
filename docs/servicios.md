@@ -28,6 +28,16 @@ internas `marcar_enviado` ni `vencidos` de recordatorios. La consulta NBA se
 registra solo si se inyecta una `FuenteNBA`; por ahora, la fuente disponible es
 falsa y no consulta APIs reales.
 
+La comprobación de existencia y propiedad, y la resolución de nombres, se
+centralizan en `app/services/errores.py` y `app/services/resolucion.py`.
+Las herramientas solo traducen el selector recibido (UUID o nombre) a la
+llamada del servicio. `ErrorResolucionNombre` conserva los candidatos para que
+la capa de herramientas pueda incluirlos en su respuesta estructurada.
+`exigir_usuario` unifica la búsqueda de usuarios; `obtener_entidad_de_usuario`
+aplica la misma comprobación de propiedad y acepta el error específico de cada
+entidad. Cada servicio expone un método de resolución tipado que lista solo los
+elementos del usuario antes de aplicar la coincidencia exacta.
+
 Las herramientas que operan sobre un hábito, objetivo, evento o recordatorio
 aceptan su UUID o su nombre/título. La búsqueda es exacta e ignora mayúsculas,
 tildes y espacios exteriores; solo consulta datos del usuario actual. Si no
