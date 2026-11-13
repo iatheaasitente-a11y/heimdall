@@ -17,6 +17,13 @@ class EstadoEvento(StrEnum):
     CANCELADO = "cancelado"
 
 
+class Repeticion(StrEnum):
+    """Patrón de repetición de un evento."""
+
+    SEMANAL = "semanal"
+    MENSUAL = "mensual"
+
+
 @dataclass
 class Evento:
     """Actividad con hora de inicio y de fin en la agenda de un usuario.
@@ -30,6 +37,8 @@ class Evento:
         descripcion: Detalles opcionales.
         ubicacion: Lugar opcional.
         estado: Estado actual; por defecto ``PROGRAMADO``.
+        todo_el_dia: Si es ``True``, el evento ocupa el día completo.
+        repeticion: Patrón de repetición (semanal o mensual), o ``None``.
     """
 
     usuario_id: UUID
@@ -40,6 +49,8 @@ class Evento:
     descripcion: str | None = None
     ubicacion: str | None = None
     estado: EstadoEvento = EstadoEvento.PROGRAMADO
+    todo_el_dia: bool = False
+    repeticion: Repeticion | None = None
 
     def __post_init__(self) -> None:
         """Valida el evento al crearlo.
@@ -89,6 +100,33 @@ class Evento:
     def duracion(self) -> timedelta:
         """Devuelve el tiempo que dura el evento."""
         return self.termina - self.comienza
+
+    def siguiente_ocurrencia(self, desde: datetime) -> datetime | None:
+        """Calcula la próxima ocurrencia del evento según su patrón de repetición.
+
+        Args:
+            desde: Fecha desde la que buscar la próxima ocurrencia.
+
+        Returns:
+            La próxima fecha de inicio, o ``None`` si el evento no se repite.
+        """
+        if self.repeticion is None:
+            return None
+        if self.repeticion == Repeticion.SEMANAL:
+            return self.comienza + timedelta(weeks=1)
+        if self.repeticion == Repeticion.MENSUAL:
+            mes = self.comienza.month + 1
+            anio = self.comienza.year
+            if mes > 12:
+                mes = 1
+                anio += 1
+            try:
+                return self.comienza.replace(year=anio, month=mes)
+            except ValueError:
+                import calendar
+                ultimo_dia = calendar.monthrange(anio, mes)[1]
+                return self.comienza.replace(year=anio, month=mes, day=ultimo_dia)
+        return None
 
     def se_solapa_con(self, otro: "Evento") -> bool:
         """Indica si dos eventos coinciden en algún tramo de tiempo.

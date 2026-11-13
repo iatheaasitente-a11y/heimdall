@@ -1,6 +1,6 @@
 """Casos de uso de la agenda: crear, mover y consultar eventos."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from uuid import UUID
 
 from app.domain.reminder import EstadoRecordatorio, Recordatorio
@@ -34,8 +34,9 @@ class ServicioAgenda:
     responde igual que si no existiera, para no revelar que existe.
 
     Si se le da un repositorio de recordatorios, mantiene coherentes los avisos
-    de cada evento: al cancelarlo o completarlo cancela los pendientes y al
-    reprogramarlo los desplaza lo mismo que se movió el evento.
+    de cada evento: al crearlo genera un aviso automático para su inicio, al
+    cancelarlo o completarlo cancela los pendientes y al reprogramarlo los
+    desplaza lo mismo que se movió el evento.
     """
 
     def __init__(
@@ -57,8 +58,15 @@ class ServicioAgenda:
         termina: datetime,
         descripcion: str | None = None,
         ubicacion: str | None = None,
+        todo_el_dia: bool = False,
     ) -> Evento:
         """Crea y guarda un evento si no choca con ninguno activo del usuario.
+
+        Si ``todo_el_dia`` es ``True``, ajusta las horas al día completo en la
+        zona horaria del usuario (00:00 a 23:59:59.999999).
+
+        Si hay repositorio de recordatorios, crea también un aviso automático
+        para el inicio del evento.
 
         Raises:
             UsuarioNoEncontrado: Si el usuario no existe.
@@ -67,7 +75,14 @@ class ServicioAgenda:
                 llevan zona horaria.
             ConflictoDeHorario: Si se solapa con otro evento activo.
         """
-        exigir_usuario(self._usuarios.obtener, usuario_id)
+        usuario = exigir_usuario(self._usuarios.obtener, usuario_id)
+        if todo_el_dia:
+            zona = usuario.zona()
+            dia = comienza.astimezone(zona).date()
+            comienza = datetime.combine(dia, time.min, tzinfo=zona)
+            termina = datetime.combine(
+                dia, time(23, 59, 59, 999999), tzinfo=zona
+            )
         evento = Evento(
             usuario_id,
             titulo.strip(),
@@ -75,10 +90,12 @@ class ServicioAgenda:
             termina,
             descripcion=descripcion,
             ubicacion=ubicacion,
+            todo_el_dia=todo_el_dia,
         )
         EventoSchema.model_validate(evento)
         self._exigir_sin_conflicto(evento)
         self._eventos.guardar(evento)
+        self._crear_recordatorio_automatico(usuario, evento)
         return evento
 
     def obtener_evento(self, usuario_id: UUID, evento_id: UUID) -> Evento:
@@ -130,10 +147,10 @@ class ServicioAgenda:
 
         El evento no se considera en conflicto consigo mismo. Solo se pueden
         reprogramar eventos programados. Los recordatorios pendientes del evento se
-        desplazan lo mismo que se mueve su inicio.
+        desplazan lo mismo que se movió el evento.
 
         Raises:
-            EventoNoEncontrado: Si no existe o pertenece a otro usuario.
+            EventoNoEncontrado: Si el evento no existe o pertenece a otro usuario.
             EventoNoActivo: Si el evento está cancelado o completado.
             ValueError: Si ``termina`` no es posterior a ``comienza``.
             pydantic.ValidationError: Si las fechas no llevan zona horaria.
@@ -151,6 +168,7 @@ class ServicioAgenda:
             descripcion=actual.descripcion,
             ubicacion=actual.ubicacion,
             estado=actual.estado,
+            todo_el_dia=actual.todo_el_dia,
         )
         EventoSchema.model_validate(candidato)
         self._exigir_sin_conflicto(candidato)
@@ -265,6 +283,19 @@ class ServicioAgenda:
         horario = Horario(self._eventos.listar_por_usuario(evento.usuario_id))
         if horario.hay_conflicto(evento):
             raise ConflictoDeHorario(evento.titulo)
+
+    def _crear_recordatorio_automatico(self, usuario, evento: Evento) -> None:
+        """Crea un aviso para el inicio del evento si hay repositorio de recordatorios."""
+        if self._recordatorios is None:
+            return
+        hora = evento.comienza.astimezone(usuario.zona())
+        recordatorio = Recordatorio(
+            usuario.id,
+            f"{evento.titulo} empieza a las {hora:%H:%M}",
+            evento.comienza,
+            evento_id=evento.id,
+        )
+        self._recordatorios.guardar(recordatorio)
 
     def _recordatorios_pendientes(self, evento_id: UUID) -> list[Recordatorio]:
         """Devuelve los recordatorios pendientes de un evento (vacío si no hay repositorio)."""
